@@ -1,0 +1,56 @@
+# ── 1) Secrets & environment ──────────────────────────────────────────────
+.env
+.env.*
+.env.*.local
+.env.cloud
+
+# Any key/cert files
+**/*.pem
+**/*.key
+**/*_key.*
+**/*secret*
+**/*token*
+
+# Local sqlite/db files
+**/*.sqlite
+**/*.sqlite3
+**/*.db
+
+# ── 2) Generated / bulky / tooling noise ──────────────────────────────────
+*.md
+**/__pycache__/**
+**/*.pyc
+.venv/
+venv/
+.poetry/
+.poetry_cache/
+**/.pytest_cache/**
+.coverage
+coverage.xml
+dist/
+build/
+*.log
+*.iml
+
+# Node stuff (present or future)
+node_modules/
+**/package-lock.json
+**/pnpm-lock.yaml
+**/yarn.lock
+
+# IDE/editor
+.idea/
+.vscode/
+
+# ── 3) CI/CD & deployment files that may expose tokens or internals ───────
+.github/workflows/**
+render.yaml
+fly.toml
+
+# ── 4) Optional trims (unnecessary for most AI analysis) ──────────────────
+# Seeder data may contain emails/PII or noisy fixtures
+seeders/**
+# Large schema histories can bloat the pack; keep if you want schema diffs
+#migrations/versions/**
+
+tests/**
