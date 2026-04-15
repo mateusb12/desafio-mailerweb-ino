@@ -8,6 +8,10 @@ app = FastAPI(title="Meeting Room Booking API")
 def root():
     return {"message": "API is running"}
 
+@app.get("/health")
+def health():
+    return {"status": "ok"}
+
 
 if __name__ == "__main__":
     uvicorn.run(
