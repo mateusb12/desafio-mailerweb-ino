@@ -1,8 +1,18 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 import uvicorn
 
-app = FastAPI(title="Meeting Room Booking API")
+from source.core.create_db import create_db
 
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    create_db()
+    yield
+
+
+app = FastAPI(title="Meeting Room Booking API", lifespan=lifespan)
 
 @app.get("/")
 def root():
