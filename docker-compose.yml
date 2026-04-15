@@ -22,19 +22,20 @@ services:
       - db
     environment:
       DATABASE_URL: postgresql://postgres:postgres@db:5432/meeting_rooms
-    ports:
-      - "8000:8000"
     volumes:
       - ./backend:/app
+    ports:
+      - "8000:8000"
     command: poetry run uvicorn source.main:app --host 0.0.0.0 --port 8000 --reload
 
   frontend:
     build: ./frontend
     container_name: meeting_room_frontend
-    ports:
-      - "5173:5173"
     volumes:
       - ./frontend:/app
+      - /app/node_modules
+    ports:
+      - "5173:5173"
     command: npm run dev -- --host
 
 volumes:
