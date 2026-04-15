@@ -1,252 +1,221 @@
-
 # 🧪 Coding Test — Fullstack
 ## Meeting Room Booking + Async Notification System
 
----
-
-# 📌 Sobre o Desafio
-
-Você deverá desenvolver uma aplicação **Fullstack** para gerenciamento de reservas de salas com um sistema de notificação assíncrono por e-mail.
-
-O objetivo é avaliar como você:
-
-- Estrutura a aplicação
-- Modela os dados
-- Implementa regras de negócio
-- Trata concorrência
-- Organiza processamento assíncrono
-- Escreve testes
-- Documenta decisões técnicas
-
-Você tem liberdade de arquitetura e implementação, desde que atenda aos requisitos descritos.
+Sistema fullstack para gerenciamento de reservas de salas físicas com envio assíncrono de notificações por e-mail utilizando o padrão **Outbox + Worker**.
 
 ---
 
-# ⏳ Prazo
+# 🏗️ Arquitetura
 
-Após receber o link do desafio, você tem **3 dias corridos** para submeter sua solução.
+O projeto segue uma abordagem **monorepo**, contendo:
 
----
+backend/
+frontend/
+docker-compose.yml
 
-# 🚀 Como proceder
+Principais conceitos aplicados:
 
-1. Faça o **fork** do repositório oficial:
-   https://github.com/MailerWeb/desafio-mailerweb-ino
-
-2. Desenvolva sua solução no seu fork.
-
-3. Ao finalizar, envie o link do seu repositório para avaliação.
-
----
-
-# 🎯 Objetivo do Projeto
-
-Construir uma aplicação que permita:
-
-- Criar e gerenciar salas
-- Criar reservas com prevenção de conflito de horário
-- Editar e cancelar reservas
-- Notificar automaticamente os participantes por e-mail quando houver mudanças
+- Arquitetura vertical por feature no backend
+- Separação entre fluxo síncrono (API) e assíncrono (worker)
+- Persistência de eventos com padrão Outbox
+- Garantia de consistência via transação de banco
+- Live reload em ambiente Docker para produtividade
 
 ---
 
-# 🧱 Stack
+# 🧱 Stack utilizada
 
 ## Backend
-- Python 3.10+
-- Framework livre (FastAPI, Flask, Django etc.)
-- Banco livre (SQLite permitido, PostgreSQL recomendado)
+- Python 3.12
+- FastAPI
+- SQLAlchemy
+- PostgreSQL
+- Poetry
+- Pytest
 
 ## Frontend
-- React ou Next.js
+- React
+- TypeScript
+- Vite
 
-Estrutura de pastas livre (monorepo ou separadas).
-
----
-
-# 📖 Contexto do Sistema
-
-A empresa precisa organizar reservas de salas e garantir que os participantes sejam notificados automaticamente quando uma reunião for:
-
-- Criada
-- Alterada
-- Cancelada
-
-As notificações devem ser processadas de forma **assíncrona**, via worker.
+## Infra
+- Docker
+- Docker Compose
 
 ---
 
-# 🔧 Requisitos Funcionais
+# 🐳 Como executar o projeto (recomendado)
 
-## 1️⃣ Salas
+Requisitos:
 
-- Criar sala
-- Listar salas
-- Visualizar detalhes
-- Nome único
-- Capacidade válida
+- Docker
+- Docker Compose
 
+**Executar**:
+```
+docker compose up --build
+```
+
+**Serviços disponíveis**:
+
+Frontend:
+```
+http://localhost:5173
+```
+
+**Backend API**:
+```
+http://localhost:8000
+```
+
+**Swagger**:
+```
+http://localhost:8000/docs
+```
+
+**PostgreSQL**:
+```
+localhost:5432
+```
 ---
 
-## 2️⃣ Reservas
 
-Uma reserva deve conter:
-
-- Título
-- Sala
-- Horário de início e fim
-- Status (ativa ou cancelada)
-- Participantes
-
-### Regras obrigatórias
-
-- Datas em ISO 8601 com timezone
-- `start_at < end_at`
-- Duração mínima: 15 minutos
-- Duração máxima: 8 horas
-- Não pode haver sobreposição de reservas ativas na mesma sala
-- Reservas canceladas não devem ser removidas
-
-### Overlap
-
-Existe conflito quando:
-
-    new_start < existing_end AND new_end > existing_start
-
-Reservas que apenas encostam no horário são permitidas.
-
-### Concorrência
-
-A aplicação deve impedir que duas requisições simultâneas criem reservas conflitantes.
-
-Documente sua estratégia (transação, lock, constraint etc.).
-
----
-
-# 🔐 Autenticação
-
-Deve existir mecanismo de autenticação.
-
-Você pode usar:
-
-- JWT
-- Token fixo
-- Sistema simplificado
-
-Deve existir conceito de usuário.
-
-Usuários autenticados podem:
-
-- Criar reservas
-- Editar reservas
-- Cancelar reservas
-
----
-
-# ✉️ Sistema de Mensageria (Obrigatório)
-
-Além das reservas, o sistema deve implementar um mecanismo assíncrono de notificação por e-mail usando padrão **Outbox + Worker**.
-
-## Eventos que devem gerar notificação
-
-- BOOKING_CREATED
-- BOOKING_UPDATED
-- BOOKING_CANCELED
-
-## Requisitos
-
-Ao criar/alterar/cancelar uma reserva:
-
-1. Persistir alteração da reserva
-2. Criar um evento na tabela de Outbox
-3. Garantir que ambos ocorram na mesma transação
-
----
-
-## Worker
-
-Deve existir um worker separado que:
-
-- Busca eventos pendentes
-- Processa envio de e-mails
-- Marca como processado
-- Implementa retry com controle de tentativas
-- Evita envio duplicado (idempotência)
-
-O worker pode ser:
-
-- Celery
-- RQ
-- Processo simples em loop
-- Command separado
-
-Documente como executar.
-
----
-## Conteúdo mínimo do e-mail
-
-- Título da reunião
-- Sala
-- Horário
-- Tipo de evento (criada, alterada, cancelada)
-
-Pode ser texto simples.
-
----
-
-# 🧪 Testes
+# 💻 Execução manual (sem Docker)
 
 ## Backend
 
-Esperamos testes cobrindo:
+Requisitos:
+- Python 3.12
+- Poetry
+- PostgreSQL
 
-- Validação de datas
-- Conflito de reserva
-- Permissões
-- Criação de evento no outbox
-- Processamento pelo worker
-- Idempotência de envio
+**Instalar dependências**:
+```
+cd backend
+poetry install
+```
+
+**Configurar variável de ambiente**:
+```
+export DATABASE_URL=postgresql://postgres:postgres@localhost:5432/meeting_rooms
+```
+**Executar API**:
+```
+poetry run uvicorn source.main:app --reload
+```
+**API**:
+```
+http://localhost:8000
+```
+**Docs**:
+```
+http://localhost:8000/docs
+```
+---
 
 ## Frontend
 
-Testes mínimos para:
+**Requisitos**:
+- Node 20+
 
-- Criar reserva
-- Exibir erro de conflito
-- Fluxo básico de login
-- Integração com backend
+**Instalar dependências**:
+```
+cd frontend
+npm install
+```
 
----
+**Executar**:
+```
+npm run dev
+```
 
-# 🖥️ Frontend
-
-Deve permitir:
-
-- Login
-- Listar salas
-- Criar reserva
-- Editar/cancelar reserva
-
-UX deve tratar:
-
-- Loading
-- Erros
-- Feedback ao usuário
+**Frontend**:
+```
+http://localhost:5173
+```
 
 ---
 
-# 📦 Entrega
+## Banco de dados
 
-Seu repositório deve conter:
+**Criar database**:
+```
+createdb meeting_rooms
+```
+ou:
+```
+CREATE DATABASE meeting_rooms;
+```
 
-- Backend
-- Frontend
-- Testes
-- README com:
-  - Como rodar backend
-  - Como rodar frontend
-  - Como rodar worker
-  - Variáveis de ambiente
-  - Decisões técnicas
+# 🔁 Live Reload
 
-Boa sorte 🚀
+O ambiente de desenvolvimento suporta live reload automático:
+
+- alterações no backend reiniciam a API automaticamente
+- alterações no frontend atualizam o navegador automaticamente
+
+Não é necessário rebuild de container.
+
+---
+
+# 📬 Outbox Pattern
+
+Enviar e-mail diretamente dentro da transação da reserva pode gerar inconsistências.
+
+Exemplo de problema:
+
+1. a reserva é salva no banco
+2. tentativa de enviar e-mail
+3. ocorre falha no envio (timeout, SMTP fora, erro de rede)
+4. a reserva foi criada, mas ninguém foi notificado
+
+ou o contrário:
+
+1. e-mail enviado
+2. falha antes do commit da transação
+3. usuário recebe notificação de uma reserva que não existe
+
+Para evitar esse tipo de inconsistência, o sistema utiliza o padrão **Outbox**.
+
+A ideia é salvar o evento de notificação na mesma transação da reserva.
+
+Fluxo:
+
+1. a reserva é salva
+2. um evento é salvo na tabela `outbox`
+3. a transação é confirmada (commit)
+4. um worker consulta periodicamente a tabela `outbox`
+5. eventos pendentes são processados
+6. e-mails são enviados
+7. o evento é marcado como processado
+
+O worker roda continuamente buscando novos eventos.
+
+Benefícios:
+
+- garante consistência entre banco e notificação
+- permite retry em caso de falha no envio
+- evita envio duplicado (idempotência)
+- desacopla processamento assíncrono da API
+
+---
+
+
+# 📌 Decisões técnicas
+
+**FastAPI:**
+simples, performático e adequado para APIs REST
+
+**PostgreSQL:**
+suporte robusto a transações e concorrência
+
+**Outbox Pattern:**
+garante consistência entre operações síncronas e assíncronas
+
+**Arquitetura vertical:**
+organiza o código por domínio, facilitando manutenção
+
+**Docker:**
+ambiente reproduzível com setup simplificado
+
+---
