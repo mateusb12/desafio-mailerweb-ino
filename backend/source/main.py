@@ -3,12 +3,12 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 import uvicorn
 
-from source.core.create_db import create_db
+from source.core.migrations import run_migrations
 
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
-    create_db()
+    run_migrations()
     yield
 
 
