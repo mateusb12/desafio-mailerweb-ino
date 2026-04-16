@@ -1,20 +1,27 @@
-/backend/backend.md
-/frontend/frontend.md
+__pycache__/
+*.py[cod]
+*$py.class
 
-.venv
+.venv/
 .venv.*
 env/
 venv/
 
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
-*.pytest_cache
+.pytest_cache/
 
+alembic/versions/__pycache__/
+
+node_modules/
+
+dist/
+build/
+coverage/
+
+vite.svg
 .env
 .env.*
 
+*.log
 .idea/
 *.iml
 
@@ -23,4 +30,7 @@ __pycache__/
 .DS_Store
 Thumbs.db
 
-*.log
+.codex/
+.codex
+.repomix/
+/backend/backend.md
