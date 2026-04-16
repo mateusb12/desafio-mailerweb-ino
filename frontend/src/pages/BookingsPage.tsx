@@ -1,8 +1,6 @@
 import { useEffect, useMemo, useState } from "react"
-import dayjs from "dayjs"
-import type { Dayjs } from "dayjs"
-import { TimePicker } from "@mui/x-date-pickers/TimePicker"
-import { renderMultiSectionDigitalClockTimeView } from "@mui/x-date-pickers/timeViewRenderers"
+import DateInput from "../components/DateInput"
+import TimeInput from "../components/TimeInput"
 import { bookingService } from "../services/bookingService"
 import { mockUser } from "../services/mockData"
 import { roomService } from "../services/roomService"
@@ -28,98 +26,6 @@ const emptyForm: BookingFormInput = {
   startTime: "",
   endTime: "",
   participants: [],
-}
-
-const timePickerSx = {
-  minWidth: 0,
-  width: "100%",
-  "& .MuiInputBase-root": {
-    height: 44,
-    borderRadius: "0.5rem",
-    backgroundColor: "rgb(255 255 255)",
-    color: "rgb(15 23 42)",
-    fontFamily: "inherit",
-    fontWeight: 700,
-  },
-  "& .MuiInputBase-input": {
-    padding: "0 0 0 0.75rem",
-    height: 44,
-  },
-  "& .MuiInputAdornment-root": {
-    marginLeft: 0,
-  },
-  "& .MuiIconButton-root": {
-    marginRight: "0.25rem",
-    color: "rgb(71 85 105)",
-  },
-  "& .MuiOutlinedInput-notchedOutline": {
-    borderColor: "rgb(226 232 240)",
-  },
-  "& .MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline": {
-    borderColor: "rgb(37 99 235)",
-  },
-  "& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline": {
-    borderColor: "rgb(37 99 235)",
-    borderWidth: "1px",
-  },
-  "& .MuiOutlinedInput-root.Mui-focused": {
-    boxShadow: "0 0 0 4px rgb(37 99 235 / 0.14)",
-  },
-  ':where([data-theme="dark"], [data-theme="dark"] *) & .MuiInputBase-root': {
-    backgroundColor: "rgb(15 23 42)",
-    color: "rgb(248 250 252)",
-  },
-  ':where([data-theme="dark"], [data-theme="dark"] *) & .MuiIconButton-root': {
-    color: "rgb(203 213 225)",
-  },
-  ':where([data-theme="dark"], [data-theme="dark"] *) & .MuiOutlinedInput-notchedOutline':
-    {
-      borderColor: "rgb(51 65 85)",
-    },
-  ':where([data-theme="dark"], [data-theme="dark"] *) & .MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline':
-    {
-      borderColor: "rgb(96 165 250)",
-    },
-  ':where([data-theme="dark"], [data-theme="dark"] *) & .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline':
-    {
-      borderColor: "rgb(96 165 250)",
-    },
-  ':where([data-theme="dark"], [data-theme="dark"] *) & .MuiOutlinedInput-root.Mui-focused':
-    {
-      boxShadow: "0 0 0 4px rgb(96 165 250 / 0.16)",
-    },
-}
-
-const timePickerPopperSx = {
-  "& .MuiPaper-root": {
-    borderRadius: "0.75rem",
-    border: "1px solid rgb(226 232 240)",
-    boxShadow: "0 18px 40px rgb(15 23 42 / 0.18)",
-  },
-  "& .MuiMenuItem-root.Mui-selected": {
-    backgroundColor: "rgb(37 99 235)",
-    color: "rgb(255 255 255)",
-  },
-  "& .MuiMenuItem-root.Mui-selected:hover": {
-    backgroundColor: "rgb(29 78 216)",
-  },
-  ':where([data-theme="dark"], [data-theme="dark"] *) & .MuiPaper-root': {
-    borderColor: "rgb(51 65 85)",
-    backgroundColor: "rgb(15 23 42)",
-    color: "rgb(248 250 252)",
-  },
-  ':where([data-theme="dark"], [data-theme="dark"] *) & .MuiMenuItem-root': {
-    color: "rgb(248 250 252)",
-  },
-  ':where([data-theme="dark"], [data-theme="dark"] *) & .MuiMenuItem-root:hover':
-    {
-      backgroundColor: "rgb(30 41 59)",
-    },
-  ':where([data-theme="dark"], [data-theme="dark"] *) & .MuiMenuItem-root.Mui-selected':
-    {
-      backgroundColor: "rgb(96 165 250)",
-      color: "rgb(15 23 42)",
-    },
 }
 
 const dateFormatter = new Intl.DateTimeFormat("pt-BR", {
@@ -177,24 +83,6 @@ function normalizeQuarterHour(value: string | null) {
   )}`
 }
 
-function timeStringToDayjs(value: string) {
-  if (!value) return null
-
-  const [hourPart, minutePart = "0"] = value.split(":")
-  const hour = Number(hourPart)
-  const minute = Number(minutePart)
-
-  if (!Number.isFinite(hour) || !Number.isFinite(minute)) return null
-
-  return dayjs().hour(hour).minute(minute).second(0).millisecond(0)
-}
-
-function dayjsToTimeString(value: Dayjs | null) {
-  if (!value?.isValid()) return ""
-
-  return normalizeQuarterHour(value.format("HH:mm"))
-}
-
 function composeBookingInput(form: BookingFormInput): BookingInput {
   return {
     title: form.title,
@@ -217,6 +105,35 @@ function getErrorMessage(error: unknown) {
   if (error instanceof Error) return error.message
 
   return "Nao foi possivel concluir a acao."
+}
+
+function timeToMinutes(value: string) {
+  const [hourPart, minutePart = "0"] = value.split(":")
+  const hour = Number(hourPart)
+  const minute = Number(minutePart)
+
+  if (!Number.isFinite(hour) || !Number.isFinite(minute)) return null
+
+  return hour * 60 + minute
+}
+
+function validateBookingForm(form: BookingFormInput) {
+  if (!form.date) return "Informe a data da reserva."
+  if (!form.startTime) return "Informe o horario de inicio."
+  if (!form.endTime) return "Informe o horario de fim."
+
+  const startMinutes = timeToMinutes(form.startTime)
+  const endMinutes = timeToMinutes(form.endTime)
+
+  if (startMinutes === null || endMinutes === null) {
+    return "Informe horarios validos no formato 24h."
+  }
+
+  if (endMinutes <= startMinutes) {
+    return "O horario de fim precisa ser maior que o horario de inicio."
+  }
+
+  return ""
 }
 
 export default function BookingsPage() {
@@ -270,23 +187,20 @@ export default function BookingsPage() {
     setParticipantsText("")
   }
 
-  function updateTimeField(
-    field: "startTime" | "endTime",
-    value: Dayjs | null,
-  ) {
-    setForm(current => ({
-      ...current,
-      [field]: dayjsToTimeString(value),
-    }))
-  }
-
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if (saving) return
 
-    setSaving(true)
     setError("")
     setFeedback("")
+
+    const validationError = validateBookingForm(form)
+    if (validationError) {
+      setError(validationError)
+      return
+    }
+
+    setSaving(true)
 
     const payload = composeBookingInput({
       ...form,
@@ -415,75 +329,52 @@ export default function BookingsPage() {
             </label>
 
             <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-3">
-              <label className={labelClass}>
-                Data
-                <input
-                  className={fieldClass}
-                  type="date"
+              <div className={labelClass}>
+                <label htmlFor="booking-date">Data</label>
+                <DateInput
+                  id="booking-date"
                   value={form.date}
-                  onChange={event =>
+                  onChange={value =>
                     setForm(current => ({
                       ...current,
-                      date: event.target.value,
+                      date: value,
                     }))
                   }
                   required
                 />
-              </label>
+              </div>
 
-              <label className={labelClass}>
-                Inicio
-                <TimePicker
-                  ampm={false}
-                  format="HH:mm"
-                  minutesStep={15}
-                  onChange={value => updateTimeField("startTime", value)}
-                  openTo="hours"
-                  slotProps={{
-                    popper: { sx: timePickerPopperSx },
-                    textField: {
-                      fullWidth: true,
-                      required: true,
-                      size: "small",
-                      sx: timePickerSx,
-                    },
-                  }}
-                  timeSteps={{ minutes: 15 }}
-                  value={timeStringToDayjs(form.startTime)}
-                  viewRenderers={{
-                    hours: renderMultiSectionDigitalClockTimeView,
-                    minutes: renderMultiSectionDigitalClockTimeView,
-                  }}
-                  views={["hours", "minutes"]}
+              <div className={labelClass}>
+                <label htmlFor="booking-start-time">Inicio</label>
+                <TimeInput
+                  ariaLabel="Horario de inicio"
+                  id="booking-start-time"
+                  value={form.startTime}
+                  onChange={value =>
+                    setForm(current => ({
+                      ...current,
+                      startTime: normalizeQuarterHour(value),
+                    }))
+                  }
+                  required
                 />
-              </label>
+              </div>
 
-              <label className={labelClass}>
-                Fim
-                <TimePicker
-                  ampm={false}
-                  format="HH:mm"
-                  minutesStep={15}
-                  onChange={value => updateTimeField("endTime", value)}
-                  openTo="hours"
-                  slotProps={{
-                    popper: { sx: timePickerPopperSx },
-                    textField: {
-                      fullWidth: true,
-                      required: true,
-                      size: "small",
-                      sx: timePickerSx,
-                    },
-                  }}
-                  timeSteps={{ minutes: 15 }}
-                  value={timeStringToDayjs(form.endTime)}
-                  viewRenderers={{
-                    hours: renderMultiSectionDigitalClockTimeView,
-                    minutes: renderMultiSectionDigitalClockTimeView,
-                  }}
-                  views={["hours", "minutes"]}
+              <div className={labelClass}>
+                <label htmlFor="booking-end-time">Fim</label>
+                <TimeInput
+                  ariaLabel="Horario de fim"
+                  id="booking-end-time"
+                  value={form.endTime}
+                  onChange={value =>
+                    setForm(current => ({
+                      ...current,
+                      endTime: normalizeQuarterHour(value),
+                    }))
+                  }
+                  required
                 />
-              </label>
+              </div>
             </div>
 
             <label className={labelClass}>
