@@ -1,40 +1,15 @@
 import { useState } from "react"
 import { Link, useNavigate } from "react-router-dom"
 import ThemeToggle from "../components/ThemeToggle"
-import { useAuth } from "../hooks/useAuth"
+import { useAuth } from "../hooks/authContext"
 
 const pageBackground =
   "min-h-svh bg-[radial-gradient(circle_at_top_left,rgba(37,99,235,0.14),transparent_34rem),linear-gradient(135deg,#f6f7fb_0%,#eef3f8_100%)] text-[#172033] dark:bg-[radial-gradient(circle_at_top_left,rgba(96,165,250,0.16),transparent_34rem),linear-gradient(135deg,#0f172a_0%,#111827_100%)] dark:text-slate-50"
 
 function getApiErrorMessage(error: unknown): string {
-  if (error instanceof Error && error.message) {
-    try {
-      const parsed = JSON.parse(error.message) as {
-        detail?: string | Array<{ msg?: string; loc?: Array<string | number> }>
-      }
-
-      if (typeof parsed.detail === "string") {
-        return parsed.detail
-      }
-
-      if (Array.isArray(parsed.detail) && parsed.detail.length > 0) {
-        const first = parsed.detail[0]
-        const field = first?.loc?.[first.loc.length - 1]
-
-        if (field && first?.msg) {
-          return `${String(field)}: ${first.msg}`
-        }
-
-        return first?.msg || "Não foi possível criar a conta."
-      }
-    } catch {
-      return error.message
-    }
-
-    return error.message
-  }
-
-  return "Não foi possível criar a conta."
+  return error instanceof Error && error.message
+    ? error.message
+    : "Não foi possível criar a conta."
 }
 
 export default function RegisterPage() {
@@ -61,7 +36,7 @@ export default function RegisterPage() {
     setLoading(true)
 
     try {
-      await register(email, password)
+      await register(email, password, confirmPassword)
       navigate("/app", { replace: true })
     } catch (err) {
       setError(getApiErrorMessage(err))

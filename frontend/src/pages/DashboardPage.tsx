@@ -1,5 +1,5 @@
 import ThemeToggle from "../components/ThemeToggle"
-import { useAuth } from "../hooks/useAuth"
+import { useAuth } from "../hooks/authContext"
 
 const appPageClass =
   "min-h-svh bg-[radial-gradient(circle_at_top_left,rgba(37,99,235,0.14),transparent_34rem),linear-gradient(135deg,#f6f7fb_0%,#eef3f8_100%)] px-5 py-10 text-[#172033] max-[820px]:px-4 max-[820px]:py-6 dark:bg-[radial-gradient(circle_at_top_left,rgba(96,165,250,0.16),transparent_34rem),linear-gradient(135deg,#0f172a_0%,#111827_100%)] dark:text-slate-50"

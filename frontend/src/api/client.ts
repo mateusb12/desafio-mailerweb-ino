@@ -24,7 +24,13 @@ function getErrorMessage(detail: ApiErrorDetail | null, fallback: string) {
   if (typeof detail === "string") return detail
 
   if (Array.isArray(detail) && detail.length > 0) {
-    return detail.map(item => item.msg).join(", ")
+    return detail
+      .map(item => {
+        const field = item.loc?.[item.loc.length - 1]
+
+        return field ? `${String(field)}: ${item.msg}` : item.msg
+      })
+      .join(", ")
   }
 
   return fallback

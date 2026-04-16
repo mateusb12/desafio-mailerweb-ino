@@ -2,7 +2,7 @@ import { useEffect, useState } from "react"
 import { Link, useLocation, useNavigate } from "react-router-dom"
 import { API_URL } from "../api/client"
 import ThemeToggle from "../components/ThemeToggle"
-import { useAuth } from "../hooks/useAuth"
+import { useAuth } from "../hooks/authContext"
 import heroImage from "../assets/hero.png"
 
 type ApiStatus = "checking" | "online" | "offline"

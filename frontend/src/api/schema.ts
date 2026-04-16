@@ -20,6 +20,27 @@ export interface paths {
       }
     }
   }
+  "/auth/register": {
+    post: {
+      requestBody: {
+        content: {
+          "application/json": components["schemas"]["RegisterRequest"]
+        }
+      }
+      responses: {
+        200: {
+          content: {
+            "application/json": components["schemas"]["TokenResponse"]
+          }
+        }
+        422: {
+          content: {
+            "application/json": components["schemas"]["HTTPValidationError"]
+          }
+        }
+      }
+    }
+  }
   "/auth/me": {
     get: {
       responses: {
@@ -63,6 +84,11 @@ export interface components {
     LoginRequest: {
       email: string
       password: string
+    }
+    RegisterRequest: {
+      email: string
+      password: string
+      confirm_password: string
     }
     TokenResponse: {
       access_token: string

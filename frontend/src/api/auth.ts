@@ -2,7 +2,7 @@ import { apiFetch } from "./client"
 import type { components } from "./schema"
 
 export type LoginRequest = components["schemas"]["LoginRequest"]
-export type RegisterRequest = LoginRequest
+export type RegisterRequest = components["schemas"]["RegisterRequest"]
 export type TokenResponse = components["schemas"]["TokenResponse"]
 
 export type UserProfile = {
@@ -19,10 +19,14 @@ export function login(email: string, password: string) {
   })
 }
 
-export function register(email: string, password: string) {
-  return apiFetch<UserProfile>("/auth/register", {
+export function register(email: string, password: string, confirmPassword: string) {
+  return apiFetch<TokenResponse>("/auth/register", {
     method: "POST",
-    body: JSON.stringify({ email, password } satisfies RegisterRequest),
+    body: JSON.stringify({
+      email,
+      password,
+      confirm_password: confirmPassword,
+    } satisfies RegisterRequest),
   })
 }
 
