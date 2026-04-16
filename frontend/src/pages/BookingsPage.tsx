@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react"
 import DateInput from "../components/DateInput"
 import TimeInput from "../components/TimeInput"
 import { bookingService } from "../services/bookingService"
-import { mockUser } from "../services/mockData"
+import { useAuth } from "../hooks/authContext"
 import { roomService } from "../services/roomService"
 import { ServiceError } from "../services/serviceError"
 import type { Booking, BookingFormInput, BookingInput, Room } from "../types/domain"
@@ -147,12 +147,12 @@ export default function BookingsPage() {
   const [cancellingId, setCancellingId] = useState<string | null>(null)
   const [error, setError] = useState("")
   const [feedback, setFeedback] = useState("")
+  const { user: currentUser } = useAuth()
 
   const roomById = useMemo(
     () => new Map(rooms.map(room => [room.id, room])),
     [rooms],
   )
-  const currentUser = mockUser
 
   async function loadData() {
     setLoading(true)
@@ -272,7 +272,7 @@ export default function BookingsPage() {
           </h1>
           <p className="mb-0 mt-2.5 max-w-[42rem] leading-relaxed text-slate-500 dark:text-slate-300">
             Crie, edite e cancele reservas usando as regras do desafio em um
-            service mockado.
+            fluxo integrado ao backend.
           </p>
         </header>
 
@@ -444,12 +444,12 @@ export default function BookingsPage() {
               const isCancelled = booking.status === "cancelled"
               const creatorName = booking.createdBy.name ?? booking.createdBy.email
               const createdByMe =
-                booking.createdBy.id === currentUser.id ||
+                booking.createdBy.id === currentUser?.id ||
                 booking.createdBy.email.toLowerCase() ===
-                  currentUser.email.toLowerCase()
+                  currentUser?.email.toLowerCase()
               const participates = booking.participants.some(
                 participant =>
-                  participant.toLowerCase() === currentUser.email.toLowerCase(),
+                  participant.toLowerCase() === currentUser?.email.toLowerCase(),
               )
               const isParticipantOnly = participates && !createdByMe
               const canManage = createdByMe && !isCancelled

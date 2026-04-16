@@ -1,13 +1,36 @@
-import { clone, wait } from "./mockUtils"
-import { mockBookings, mockUser } from "./mockData"
+import { ApiError, apiFetch } from "../api/client"
 import { ServiceError } from "./serviceError"
 import type { Booking, BookingInput } from "../types/domain"
-
-let bookings = clone(mockBookings)
 
 const minute = 60 * 1000
 const minDuration = 15 * minute
 const maxDuration = 8 * 60 * minute
+
+type BackendBookingStatus = "active" | "canceled"
+
+type BookingResponse = {
+  id: string
+  title: string
+  room_id: string
+  created_by: {
+    id: string
+    email: string
+    role: string
+    is_active: boolean
+  }
+  start_at: string
+  end_at: string
+  status: BackendBookingStatus
+  participants: string[]
+}
+
+type BookingRequest = {
+  title: string
+  room_id: string
+  start_at: string
+  end_at: string
+  participants: string[]
+}
 
 function toDate(value: string) {
   const date = new Date(value)
@@ -19,7 +42,7 @@ function toDate(value: string) {
   return date
 }
 
-function validateBooking(input: BookingInput, ignoredBookingId?: string) {
+function validateBooking(input: BookingInput) {
   if (!input.title.trim()) {
     throw new ServiceError("VALIDATION_ERROR", "Informe um título para a reserva.")
   }
@@ -59,24 +82,6 @@ function validateBooking(input: BookingInput, ignoredBookingId?: string) {
       "A reserva deve ter duração máxima de 8 horas.",
     )
   }
-
-  const conflict = bookings.find(booking => {
-    if (booking.id === ignoredBookingId) return false
-    if (booking.status === "cancelled") return false
-    if (booking.roomId !== input.roomId) return false
-
-    const existingStart = toDate(booking.start_at)
-    const existingEnd = toDate(booking.end_at)
-
-    return start < existingEnd && end > existingStart
-  })
-
-  if (conflict) {
-    throw new ServiceError(
-      "BOOKING_CONFLICT",
-      "Já existe uma reserva ativa para esta sala nesse intervalo. Ajuste o horário ou escolha outra sala.",
-    )
-  }
 }
 
 function normalizeInput(input: BookingInput): BookingInput {
@@ -89,85 +94,118 @@ function normalizeInput(input: BookingInput): BookingInput {
   }
 }
 
-export async function listBookings(): Promise<Booking[]> {
-  const sorted = [...bookings].sort(
-    (a, b) => new Date(a.start_at).getTime() - new Date(b.start_at).getTime(),
-  )
+function toFrontendDateTime(value: string) {
+  return value.slice(0, 16)
+}
 
-  return wait(clone(sorted))
+function toBackendDateTime(value: string) {
+  if (/[zZ]$|[+-]\d\d:\d\d$/.test(value)) return value
+  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(value)) return `${value}:00Z`
+  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$/.test(value)) return `${value}Z`
+
+  return value
+}
+
+function toBooking(response: BookingResponse): Booking {
+  return {
+    id: response.id,
+    title: response.title,
+    roomId: response.room_id,
+    createdBy: {
+      id: response.created_by.id,
+      email: response.created_by.email,
+    },
+    start_at: toFrontendDateTime(response.start_at),
+    end_at: toFrontendDateTime(response.end_at),
+    status: response.status === "canceled" ? "cancelled" : "active",
+    participants: response.participants,
+  }
+}
+
+function toBookingRequest(input: BookingInput): BookingRequest {
+  return {
+    title: input.title,
+    room_id: input.roomId,
+    start_at: toBackendDateTime(input.start_at),
+    end_at: toBackendDateTime(input.end_at),
+    participants: input.participants,
+  }
+}
+
+function toServiceError(error: unknown): Error {
+  if (error instanceof ApiError) {
+    const code =
+      error.status === 409
+        ? "BOOKING_CONFLICT"
+        : error.status === 404
+          ? "NOT_FOUND"
+          : error.status === 422
+            ? "VALIDATION_ERROR"
+            : "API_ERROR"
+
+    return new ServiceError(code, error.message)
+  }
+
+  if (error instanceof Error) return error
+
+  return new ServiceError("API_ERROR", "Nao foi possivel concluir a acao.")
+}
+
+export async function listBookings(): Promise<Booking[]> {
+  try {
+    const bookings = await apiFetch<BookingResponse[]>("/bookings")
+
+    return bookings.map(toBooking)
+  } catch (error) {
+    throw toServiceError(error)
+  }
 }
 
 export async function createBooking(input: BookingInput): Promise<Booking> {
-  await wait(null)
-
   const normalized = normalizeInput(input)
   validateBooking(normalized)
 
-  const booking: Booking = {
-    id: `booking-${crypto.randomUUID()}`,
-    ...normalized,
-    createdBy: {
-      id: mockUser.id,
-      name: mockUser.name,
-      email: mockUser.email,
-    },
-    status: "active",
+  try {
+    const booking = await apiFetch<BookingResponse>("/bookings", {
+      method: "POST",
+      body: JSON.stringify(toBookingRequest(normalized)),
+    })
+
+    return toBooking(booking)
+  } catch (error) {
+    throw toServiceError(error)
   }
-
-  bookings = [...bookings, booking]
-
-  return clone(booking)
 }
 
 export async function updateBooking(
   id: string,
   input: BookingInput,
 ): Promise<Booking> {
-  await wait(null)
-
-  const existing = bookings.find(booking => booking.id === id)
-
-  if (!existing) {
-    throw new ServiceError("NOT_FOUND", "Reserva não encontrada.")
-  }
-
-  if (existing.status === "cancelled") {
-    throw new ServiceError(
-      "VALIDATION_ERROR",
-      "Reservas canceladas não podem ser editadas.",
-    )
-  }
-
   const normalized = normalizeInput(input)
-  validateBooking(normalized, id)
+  validateBooking(normalized)
 
-  const updated: Booking = {
-    ...existing,
-    ...normalized,
+  try {
+    const booking = await apiFetch<BookingResponse>(`/bookings/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(toBookingRequest(normalized)),
+    })
+
+    return toBooking(booking)
+  } catch (error) {
+    throw toServiceError(error)
   }
-
-  bookings = bookings.map(booking => (booking.id === id ? updated : booking))
-
-  return clone(updated)
 }
 
 export async function cancelBooking(id: string): Promise<Booking> {
-  await wait(null)
+  try {
+    const booking = await apiFetch<BookingResponse>(`/bookings/${id}/cancel`, {
+      method: "POST",
+    })
 
-  const existing = bookings.find(booking => booking.id === id)
-
-  if (!existing) {
-    throw new ServiceError("NOT_FOUND", "Reserva não encontrada.")
+    return toBooking(booking)
+  } catch (error) {
+    throw toServiceError(error)
   }
-
-  const cancelled: Booking = {
-    ...existing,
-    status: "cancelled",
-  }
-
-  bookings = bookings.map(booking => (booking.id === id ? cancelled : booking))
-
-  return clone(cancelled)
 }
 
 export const bookingService = {

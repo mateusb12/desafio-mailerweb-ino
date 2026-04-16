@@ -8,7 +8,9 @@ from starlette.responses import RedirectResponse
 from source.features.auth.controller import auth_bp
 from source.core.config import settings
 from source.core.migrations import run_migrations
+from source.features.bookings.controller import bookings_bp
 from source.features.dev.controller import dev_bp
+from source.features.rooms.controller import rooms_bp
 
 
 @asynccontextmanager
@@ -32,6 +34,8 @@ app.add_middleware(
 )
 
 app.include_router(auth_bp)
+app.include_router(rooms_bp)
+app.include_router(bookings_bp)
 app.include_router(dev_bp)
 
 

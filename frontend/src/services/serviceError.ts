@@ -3,6 +3,7 @@ export type ServiceErrorCode =
   | "VALIDATION_ERROR"
   | "BOOKING_CONFLICT"
   | "NOT_FOUND"
+  | "API_ERROR"
 
 export class ServiceError extends Error {
   code: ServiceErrorCode
