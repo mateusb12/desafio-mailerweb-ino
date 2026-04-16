@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
-from sqlalchemy import String, Boolean, DateTime
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy import Boolean, DateTime, String
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from source.core.database import Base
 
 
@@ -17,3 +17,7 @@ class User(Base):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
+
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_bookings = relationship("Booking", back_populates="created_by")
+    participations = relationship("BookingParticipant", back_populates="user")
