@@ -8,6 +8,7 @@ from starlette.responses import RedirectResponse
 from source.features.auth.controller import auth_bp
 from source.core.config import settings
 from source.core.migrations import run_migrations
+from source.features.dev.controller import dev_bp
 
 
 @asynccontextmanager
@@ -15,7 +16,6 @@ async def lifespan(_app: FastAPI):
     settings.require_jwt_secret_key()
     run_migrations()
     yield
-
 
 
 app = FastAPI(title="Meeting Room Booking API", lifespan=lifespan)
@@ -32,6 +32,7 @@ app.add_middleware(
 )
 
 app.include_router(auth_bp)
+app.include_router(dev_bp)
 
 
 @app.get("/json", include_in_schema=False)

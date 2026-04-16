@@ -6,6 +6,7 @@ class Settings(BaseSettings):
 
     database_url: str = "postgresql+psycopg2://postgres:postgres@localhost:5432/meeting_rooms"
     jwt_secret_key: str | None = None
+    environment: str = "development"
 
     def require_jwt_secret_key(self) -> str:
         if not self.jwt_secret_key:

@@ -56,11 +56,11 @@ export default function TimeInput({
   const options = TIME_OPTIONS
   const displayValue = isEditing ? draftValue : value
   const filteredOptions = useMemo(() => {
-    const typed = displayValue.trim()
+    const typed = isEditing ? draftValue.trim() : ""
     if (!typed) return options
 
     return options.filter(option => option.startsWith(typed))
-  }, [displayValue, options])
+  }, [draftValue, isEditing, options])
 
   useEffect(() => {
     if (!isOpen) return
@@ -137,8 +137,6 @@ export default function TimeInput({
           setIsOpen(true)
         }}
         onFocus={() => {
-          setDraftValue(value)
-          setIsEditing(true)
           setIsOpen(true)
         }}
         onKeyDown={event => {
