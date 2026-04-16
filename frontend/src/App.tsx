@@ -1,4 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom"
+import AuthenticatedLayout from "./components/AuthenticatedLayout"
 import ProtectedRoute from "./components/ProtectedRoute"
 import LoginPage from "./pages/LoginPage"
 import RegisterPage from "./pages/RegisterPage"
@@ -14,7 +15,9 @@ function App() {
           path="/app"
           element={
             <ProtectedRoute>
-              <DashboardPage />
+              <AuthenticatedLayout>
+                <DashboardPage />
+              </AuthenticatedLayout>
             </ProtectedRoute>
           }
         />
