@@ -3,6 +3,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
+from starlette.responses import RedirectResponse
 
 from source.features.auth.controller import auth_bp
 from source.core.config import settings
@@ -14,6 +15,7 @@ async def lifespan(_app: FastAPI):
     settings.require_jwt_secret_key()
     run_migrations()
     yield
+
 
 
 app = FastAPI(title="Meeting Room Booking API", lifespan=lifespan)
@@ -30,6 +32,11 @@ app.add_middleware(
 )
 
 app.include_router(auth_bp)
+
+
+@app.get("/json", include_in_schema=False)
+def swagger_json_redirect():
+    return RedirectResponse(url="/openapi.json")
 
 
 @app.get("/")

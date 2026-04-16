@@ -1,7 +1,5 @@
-import { useEffect, useState } from "react"
 import ThemeToggle from "../components/ThemeToggle"
-
-const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:8000"
+import { useAuth } from "../hooks/useAuth"
 
 const appPageClass =
   "min-h-svh bg-[radial-gradient(circle_at_top_left,rgba(37,99,235,0.14),transparent_34rem),linear-gradient(135deg,#f6f7fb_0%,#eef3f8_100%)] px-5 py-10 text-[#172033] max-[820px]:px-4 max-[820px]:py-6 dark:bg-[radial-gradient(circle_at_top_left,rgba(96,165,250,0.16),transparent_34rem),linear-gradient(135deg,#0f172a_0%,#111827_100%)] dark:text-slate-50"
@@ -9,51 +7,8 @@ const appPageClass =
 const badgeClass =
   "inline-flex min-h-[30px] items-center rounded-full border border-blue-600/20 bg-white/75 px-3 py-1.5 text-xs font-bold uppercase tracking-[0.04em] text-blue-700 dark:border-blue-300/30 dark:bg-[#172033]/70 dark:text-blue-300"
 
-type UserProfile = {
-  email: string
-  role: string
-  is_active: boolean
-}
-
 export default function DashboardPage() {
-  const [user, setUser] = useState<UserProfile | null>(null)
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    async function fetchUser() {
-
-      const token = localStorage.getItem("token")
-
-      if (!token) {
-        window.location.href = "/login"
-        return
-      }
-
-      const response = await fetch(`${API_URL}/auth/me`, {
-        headers: {
-          Authorization: `Bearer ${token}`
-        }
-      })
-
-      if (!response.ok) {
-        localStorage.removeItem("token")
-        window.location.href = "/login"
-        return
-      }
-
-      const data = await response.json()
-      setUser(data)
-      setLoading(false)
-    }
-
-    fetchUser()
-
-  }, [])
-
-  function logout() {
-    localStorage.removeItem("token")
-    window.location.href = "/login"
-  }
+  const { user, loading, logout } = useAuth()
 
   if (loading || !user) {
     return (

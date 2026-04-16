@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react"
+import { Link, useLocation, useNavigate } from "react-router-dom"
+import { API_URL } from "../api/client"
 import ThemeToggle from "../components/ThemeToggle"
+import { useAuth } from "../hooks/useAuth"
 import heroImage from "../assets/hero.png"
 
-const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:8000"
 type ApiStatus = "checking" | "online" | "offline"
 
 const pageBackground =
@@ -21,6 +23,9 @@ const apiStatusClasses: Record<ApiStatus, string> = {
 }
 
 export default function LoginPage() {
+  const navigate = useNavigate()
+  const location = useLocation()
+  const { login } = useAuth()
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [loading, setLoading] = useState(false)
@@ -72,23 +77,9 @@ export default function LoginPage() {
     setLoading(true)
 
     try {
-      const response = await fetch(`${API_URL}/auth/login`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ email, password }),
-      })
-
-      if (!response.ok) {
-        const data = await response.json().catch(() => null)
-        throw new Error(data?.detail || "Não foi possível fazer login.")
-      }
-
-      const data = await response.json()
-
-      localStorage.setItem("token", data.access_token)
-      window.location.href = "/app"
+      await login(email, password)
+      const from = (location.state as { from?: { pathname?: string } } | null)?.from
+      navigate(from?.pathname ?? "/app", { replace: true })
     } catch (err) {
       const message =
         err instanceof Error ? err.message : "Não foi possível fazer login."
@@ -226,6 +217,16 @@ export default function LoginPage() {
                   ? "Entrar"
                   : "Aguardando API"}
             </button>
+
+            <p className="m-0 text-center text-sm text-slate-500 dark:text-slate-300">
+              Não tem conta?{" "}
+              <Link
+                className="font-extrabold text-blue-700 hover:text-blue-800 dark:text-blue-300 dark:hover:text-blue-200"
+                to="/register"
+              >
+                Criar conta
+              </Link>
+            </p>
           </form>
         </div>
       </div>
