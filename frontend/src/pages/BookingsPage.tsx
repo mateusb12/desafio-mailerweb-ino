@@ -1,10 +1,9 @@
 import { useEffect, useMemo, useState } from "react"
-import { useAuth } from "../hooks/authContext"
 import { bookingService } from "../services/bookingService"
 import { mockUser } from "../services/mockData"
 import { roomService } from "../services/roomService"
 import { ServiceError } from "../services/serviceError"
-import type { Booking, BookingInput, Room } from "../types/domain"
+import type { Booking, BookingFormInput, BookingInput, Room } from "../types/domain"
 
 const badgeClass =
   "inline-flex min-h-[30px] items-center rounded-full border border-blue-600/20 bg-white/75 px-3 py-1.5 text-xs font-bold uppercase tracking-[0.04em] text-blue-700 dark:border-blue-300/30 dark:bg-[#172033]/70 dark:text-blue-300"
@@ -18,19 +17,72 @@ const labelClass =
 const cardClass =
   "min-w-0 rounded-xl border border-slate-200/90 bg-white/90 p-5 shadow-[0_16px_38px_rgba(23,32,51,0.08)] dark:border-slate-700/90 dark:bg-[#172033]/90"
 
-const emptyForm: BookingInput = {
+const emptyForm: BookingFormInput = {
   title: "",
   roomId: "",
-  start_at: "",
-  end_at: "",
+  date: "",
+  startTime: "",
+  endTime: "",
   participants: [],
 }
 
-function formatDateTime(value: string) {
-  return new Intl.DateTimeFormat("pt-BR", {
-    dateStyle: "short",
-    timeStyle: "short",
-  }).format(new Date(value))
+const dateFormatter = new Intl.DateTimeFormat("pt-BR", {
+  day: "2-digit",
+  month: "short",
+  year: "numeric",
+})
+
+const timeFormatter = new Intl.DateTimeFormat("pt-BR", {
+  hour: "2-digit",
+  minute: "2-digit",
+})
+
+function formatDateShort(value: string) {
+  const parts = dateFormatter.formatToParts(new Date(value))
+  const day = parts.find(part => part.type === "day")?.value ?? ""
+  const month =
+    parts.find(part => part.type === "month")?.value.replace(".", "") ?? ""
+  const year = parts.find(part => part.type === "year")?.value ?? ""
+
+  return `${day}-${month}-${year}`
+}
+
+function formatTime(value: string) {
+  return timeFormatter.format(new Date(value))
+}
+
+function formatBookingSchedule(startAt: string, endAt: string) {
+  const start = new Date(startAt)
+  const end = new Date(endAt)
+
+  if (start.toDateString() === end.toDateString()) {
+    return `${formatDateShort(startAt)} · ${formatTime(startAt)} às ${formatTime(
+      endAt,
+    )}`
+  }
+
+  return `${formatDateShort(startAt)} · ${formatTime(startAt)} às ${formatDateShort(
+    endAt,
+  )} · ${formatTime(endAt)}`
+}
+
+function splitDateTime(value: string) {
+  const [date = "", time = ""] = value.split("T")
+
+  return {
+    date,
+    time: time.slice(0, 5),
+  }
+}
+
+function composeBookingInput(form: BookingFormInput): BookingInput {
+  return {
+    title: form.title,
+    roomId: form.roomId,
+    start_at: `${form.date}T${form.startTime}`,
+    end_at: `${form.date}T${form.endTime}`,
+    participants: form.participants,
+  }
 }
 
 function parseParticipants(value: string) {
@@ -48,10 +100,9 @@ function getErrorMessage(error: unknown) {
 }
 
 export default function BookingsPage() {
-  const { user } = useAuth()
   const [rooms, setRooms] = useState<Room[]>([])
   const [bookings, setBookings] = useState<Booking[]>([])
-  const [form, setForm] = useState<BookingInput>(emptyForm)
+  const [form, setForm] = useState<BookingFormInput>(emptyForm)
   const [participantsText, setParticipantsText] = useState("")
   const [editingId, setEditingId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
@@ -64,7 +115,7 @@ export default function BookingsPage() {
     () => new Map(rooms.map(room => [room.id, room])),
     [rooms],
   )
-  const currentUser = user ?? mockUser
+  const currentUser = mockUser
 
   async function loadData() {
     setLoading(true)
@@ -107,10 +158,10 @@ export default function BookingsPage() {
     setError("")
     setFeedback("")
 
-    const payload = {
+    const payload = composeBookingInput({
       ...form,
       participants: parseParticipants(participantsText),
-    }
+    })
 
     try {
       if (editingId) {
@@ -131,12 +182,16 @@ export default function BookingsPage() {
   }
 
   function startEditing(booking: Booking) {
+    const start = splitDateTime(booking.start_at)
+    const end = splitDateTime(booking.end_at)
+
     setEditingId(booking.id)
     setForm({
       title: booking.title,
       roomId: booking.roomId,
-      start_at: booking.start_at,
-      end_at: booking.end_at,
+      date: start.date,
+      startTime: start.time,
+      endTime: end.time,
       participants: booking.participants,
     })
     setParticipantsText(booking.participants.join(", "))
@@ -229,17 +284,34 @@ export default function BookingsPage() {
               </select>
             </label>
 
-            <div className="grid min-w-0 grid-cols-1 gap-3 2xl:grid-cols-2">
+            <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-3">
+              <label className={labelClass}>
+                Data
+                <input
+                  className={fieldClass}
+                  type="date"
+                  value={form.date}
+                  onChange={event =>
+                    setForm(current => ({
+                      ...current,
+                      date: event.target.value,
+                    }))
+                  }
+                  required
+                />
+              </label>
+
               <label className={labelClass}>
                 Inicio
                 <input
                   className={fieldClass}
-                  type="datetime-local"
-                  value={form.start_at}
+                  type="time"
+                  step="900"
+                  value={form.startTime}
                   onChange={event =>
                     setForm(current => ({
                       ...current,
-                      start_at: event.target.value,
+                      startTime: event.target.value,
                     }))
                   }
                   required
@@ -250,10 +322,11 @@ export default function BookingsPage() {
                 Fim
                 <input
                   className={fieldClass}
-                  type="datetime-local"
-                  value={form.end_at}
+                  type="time"
+                  step="900"
+                  value={form.endTime}
                   onChange={event =>
-                    setForm(current => ({ ...current, end_at: event.target.value }))
+                    setForm(current => ({ ...current, endTime: event.target.value }))
                   }
                   required
                 />
@@ -342,6 +415,8 @@ export default function BookingsPage() {
                   className={`min-w-0 rounded-xl border p-4 shadow-[0_14px_30px_rgba(23,32,51,0.07)] ${
                     isCancelled
                       ? "border-slate-200 bg-slate-100/80 text-slate-500 dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-400"
+                      : createdByMe
+                        ? "border-blue-200/90 bg-white/95 text-[#172033] dark:border-blue-400/30 dark:bg-[#172033]/95 dark:text-slate-50"
                       : "border-slate-200/90 bg-white/90 text-[#172033] dark:border-slate-700/90 dark:bg-[#172033]/90 dark:text-slate-50"
                   }`}
                   key={booking.id}
@@ -363,15 +438,11 @@ export default function BookingsPage() {
                           {isCancelled ? "Cancelada" : "Ativa"}
                         </span>
 
-                        <span
-                          className={`inline-flex min-h-7 items-center rounded-full border px-2.5 text-xs font-extrabold ${
-                            createdByMe
-                              ? "border-blue-600/25 bg-blue-50 text-blue-800 dark:border-blue-400/35 dark:bg-blue-950/35 dark:text-blue-200"
-                              : "border-slate-300 bg-white text-slate-600 dark:border-slate-600 dark:bg-slate-950 dark:text-slate-300"
-                          }`}
-                        >
-                          {createdByMe ? "Criada por mim" : "Criada por outra pessoa"}
-                        </span>
+                        {createdByMe && (
+                          <span className="inline-flex min-h-7 items-center rounded-full border border-blue-600/25 bg-blue-50 px-2.5 text-xs font-extrabold text-blue-800 dark:border-blue-400/35 dark:bg-blue-950/35 dark:text-blue-200">
+                            Criada por mim
+                          </span>
+                        )}
 
                         {isParticipantOnly && (
                           <span className="inline-flex min-h-7 items-center rounded-full border border-teal-600/25 bg-teal-50 px-2.5 text-xs font-extrabold text-teal-800 dark:border-teal-400/35 dark:bg-teal-950/35 dark:text-teal-200">
@@ -382,13 +453,14 @@ export default function BookingsPage() {
 
                       <p className="mb-0 mt-2 text-sm leading-relaxed text-slate-500 dark:text-slate-300">
                         {room?.name ?? "Sala nao encontrada"} ·{" "}
-                        {formatDateTime(booking.start_at)} ate{" "}
-                        {formatDateTime(booking.end_at)}
+                        {formatBookingSchedule(booking.start_at, booking.end_at)}
                       </p>
 
-                      <p className="mb-0 mt-2 break-words text-sm leading-relaxed text-slate-500 dark:text-slate-300">
-                        Criador: {creatorName} ({booking.createdBy.email})
-                      </p>
+                      {!createdByMe && (
+                        <p className="mb-0 mt-2 break-words text-sm leading-relaxed text-slate-500 dark:text-slate-300">
+                          Criador: {creatorName} ({booking.createdBy.email})
+                        </p>
+                      )}
 
                       <p className="mb-0 mt-2 break-words text-sm leading-relaxed text-slate-500 dark:text-slate-300">
                         {booking.participants.length > 0
@@ -397,34 +469,26 @@ export default function BookingsPage() {
                       </p>
                     </div>
 
-                    {!isCancelled && (
+                    {canManage && (
                       <div className="flex flex-none flex-wrap gap-2 max-[560px]:w-full">
-                        {canManage ? (
-                          <>
-                            <button
-                              className="inline-flex min-h-9 items-center rounded-lg border border-slate-300 bg-white px-3 text-sm font-extrabold text-slate-600 hover:border-blue-600 hover:text-blue-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-blue-400 dark:hover:text-blue-300"
-                              type="button"
-                              onClick={() => startEditing(booking)}
-                            >
-                              Editar
-                            </button>
+                        <button
+                          className="inline-flex min-h-9 items-center rounded-lg border border-slate-300 bg-white px-3 text-sm font-extrabold text-slate-600 hover:border-blue-600 hover:text-blue-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-blue-400 dark:hover:text-blue-300"
+                          type="button"
+                          onClick={() => startEditing(booking)}
+                        >
+                          Editar
+                        </button>
 
-                            <button
-                              className="inline-flex min-h-9 items-center rounded-lg border border-red-200 bg-red-50 px-3 text-sm font-extrabold text-red-700 hover:border-red-400 hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-red-400/35 dark:bg-red-950/35 dark:text-red-200 dark:hover:border-red-300"
-                              type="button"
-                              disabled={cancellingId === booking.id}
-                              onClick={() => handleCancelBooking(booking.id)}
-                            >
-                              {cancellingId === booking.id
-                                ? "Cancelando..."
-                                : "Cancelar"}
-                            </button>
-                          </>
-                        ) : (
-                          <span className="inline-flex min-h-9 items-center rounded-lg border border-slate-300 bg-slate-50 px-3 text-sm font-extrabold text-slate-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400">
-                            Somente leitura
-                          </span>
-                        )}
+                        <button
+                          className="inline-flex min-h-9 items-center rounded-lg border border-red-200 bg-red-50 px-3 text-sm font-extrabold text-red-700 hover:border-red-400 hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-red-400/35 dark:bg-red-950/35 dark:text-red-200 dark:hover:border-red-300"
+                          type="button"
+                          disabled={cancellingId === booking.id}
+                          onClick={() => handleCancelBooking(booking.id)}
+                        >
+                          {cancellingId === booking.id
+                            ? "Cancelando..."
+                            : "Cancelar"}
+                        </button>
                       </div>
                     )}
                   </div>

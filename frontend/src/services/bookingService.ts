@@ -39,6 +39,13 @@ function validateBooking(input: BookingInput, ignoredBookingId?: string) {
     )
   }
 
+  if (start.toDateString() !== end.toDateString()) {
+    throw new ServiceError(
+      "VALIDATION_ERROR",
+      "A reserva deve começar e terminar no mesmo dia.",
+    )
+  }
+
   if (duration < minDuration) {
     throw new ServiceError(
       "VALIDATION_ERROR",

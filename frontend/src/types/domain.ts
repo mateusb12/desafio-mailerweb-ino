@@ -34,3 +34,12 @@ export type BookingInput = {
   end_at: string
   participants: string[]
 }
+
+export type BookingFormInput = {
+  title: string
+  roomId: string
+  date: string
+  startTime: string
+  endTime: string
+  participants: string[]
+}

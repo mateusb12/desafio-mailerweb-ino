@@ -128,6 +128,24 @@ export const mockBookings: Booking[] = [
   },
   {
     id: "booking-006",
+    title: "Retrospectiva Produto",
+    roomId: "room-aurora",
+    createdBy: {
+      id: "usr-001",
+      name: "Ana Silva",
+      email: "ana.silva@mailerweb.com",
+    },
+    start_at: "2026-04-17T09:00",
+    end_at: "2026-04-17T10:00",
+    status: "cancelled",
+    participants: [
+      "ana.silva@mailerweb.com",
+      "bruno.lima@mailerweb.com",
+      "carla.rocha@mailerweb.com",
+    ],
+  },
+  {
+    id: "booking-007",
     title: "Alinhamento Financeiro",
     roomId: "room-atlas",
     createdBy: {
