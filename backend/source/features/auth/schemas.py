@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, model_validator
 
 
 class LoginRequest(BaseModel):
@@ -11,6 +11,12 @@ class TokenResponse(BaseModel):
     token_type: str = "bearer"
 
 class RegisterRequest(BaseModel):
-    name: str = Field(min_length=2, max_length=120)
     email: EmailStr
     password: str = Field(min_length=6)
+    confirm_password: str
+
+    @model_validator(mode="after")
+    def passwords_must_match(self):
+        if self.password != self.confirm_password:
+            raise ValueError("As senhas não conferem")
+        return self

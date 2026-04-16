@@ -50,21 +50,18 @@ def users(db_session):
     suffix = uuid.uuid4()
 
     active_user = User(
-        name="Auth User",
         email=f"auth-user-{suffix}@example.com",
         password_hash=hash_password("UserPass123!"),
         role=UserRole.USER,
         is_active=True,
     )
     admin_user = User(
-        name="Auth Admin",
         email=f"auth-admin-{suffix}@example.com",
         password_hash=hash_password("AdminPass123!"),
         role=UserRole.ADMIN,
         is_active=True,
     )
     inactive_user = User(
-        name="Inactive User",
         email=f"auth-inactive-{suffix}@example.com",
         password_hash=hash_password("InactivePass123!"),
         role=UserRole.USER,

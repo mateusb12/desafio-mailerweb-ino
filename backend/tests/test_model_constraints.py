@@ -46,7 +46,6 @@ def test_booking_status_deve_ser_valido(db_session):
     )
 
     usuario = User(
-        name="Usuario teste status",
         email=f"usuario-status-{uuid.uuid4()}@teste.com",
         password_hash="nao-usado",
     )

@@ -37,7 +37,6 @@ def register(payload: RegisterRequest, db: Session = Depends(get_db)):
 
     user = register_user(
         db,
-        payload.name,
         payload.email,
         payload.password,
     )

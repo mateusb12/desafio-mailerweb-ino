@@ -10,7 +10,7 @@ function getApiErrorMessage(error: unknown): string {
   if (error instanceof Error && error.message) {
     try {
       const parsed = JSON.parse(error.message) as {
-        detail?: string | Array<{ msg?: string }>
+        detail?: string | Array<{ msg?: string; loc?: Array<string | number> }>
       }
 
       if (typeof parsed.detail === "string") {
@@ -18,7 +18,14 @@ function getApiErrorMessage(error: unknown): string {
       }
 
       if (Array.isArray(parsed.detail) && parsed.detail.length > 0) {
-        return parsed.detail[0]?.msg || "Não foi possível criar a conta."
+        const first = parsed.detail[0]
+        const field = first?.loc?.[first.loc.length - 1]
+
+        if (field && first?.msg) {
+          return `${String(field)}: ${first.msg}`
+        }
+
+        return first?.msg || "Não foi possível criar a conta."
       }
     } catch {
       return error.message
@@ -34,11 +41,9 @@ export default function RegisterPage() {
   const navigate = useNavigate()
   const { register } = useAuth()
 
-  const [name, setName] = useState("")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
-
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
 
@@ -56,7 +61,7 @@ export default function RegisterPage() {
     setLoading(true)
 
     try {
-      await register(name, email, password)
+      await register(email, password)
       navigate("/app", { replace: true })
     } catch (err) {
       setError(getApiErrorMessage(err))
@@ -78,7 +83,7 @@ export default function RegisterPage() {
           </h1>
 
           <p className="m-0 leading-relaxed text-slate-500 dark:text-slate-300">
-            Informe seus dados para acessar o sistema.
+            Informe seu email e senha para acessar o sistema.
           </p>
         </div>
 
@@ -102,28 +107,6 @@ export default function RegisterPage() {
             className="hidden"
             tabIndex={-1}
           />
-
-          <div className="grid gap-2 text-left">
-            <label
-              className="text-[0.92rem] font-bold text-[#172033] dark:text-slate-50"
-              htmlFor="register-name"
-            >
-              Nome
-            </label>
-
-            <input
-              className="h-[46px] w-full rounded-lg border border-slate-200 bg-white px-3.5 text-[#172033] outline-none transition-[border-color,box-shadow,background] duration-150 placeholder:text-slate-400 focus:border-blue-600 focus:shadow-[0_0_0_4px_rgba(37,99,235,0.14)] disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400 dark:border-slate-700 dark:bg-[#172033] dark:text-slate-50 dark:placeholder:text-slate-500 dark:focus:border-blue-400 dark:focus:shadow-[0_0_0_4px_rgba(96,165,250,0.18)] dark:disabled:bg-slate-900"
-              id="register-name"
-              name="register_name"
-              type="text"
-              autoComplete="name"
-              placeholder="Seu nome"
-              value={name}
-              onChange={e => setName(e.target.value)}
-              disabled={loading}
-              required
-            />
-          </div>
 
           <div className="grid gap-2 text-left">
             <label
@@ -210,7 +193,7 @@ export default function RegisterPage() {
           <button
             type="submit"
             className="mt-1 inline-flex min-h-[46px] w-full cursor-pointer items-center justify-center rounded-lg bg-blue-600 font-extrabold text-white shadow-[0_12px_22px_rgba(37,99,235,0.22)] transition-[transform,box-shadow,background] duration-150 hover:-translate-y-px hover:bg-blue-700 hover:shadow-[0_16px_26px_rgba(37,99,235,0.26)] disabled:cursor-not-allowed disabled:opacity-60 disabled:shadow-none disabled:hover:translate-y-0 dark:bg-blue-400 dark:text-slate-950 dark:shadow-[0_12px_24px_rgba(96,165,250,0.18)] dark:hover:bg-blue-200"
-            disabled={loading || !name || !email || !password || !confirmPassword}
+            disabled={loading || !email || !password || !confirmPassword}
           >
             {loading ? "Criando..." : "Criar conta"}
           </button>

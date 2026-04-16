@@ -33,7 +33,7 @@ def login_user(db: Session, email: str, password: str) -> str | None:
         }
     )
 
-def register_user(db: Session, name: str, email: str, password: str) -> User | None:
+def register_user(db: Session, email: str, password: str) -> User | None:
 
     existing = db.query(User).filter(User.email == email).first()
 
@@ -41,7 +41,6 @@ def register_user(db: Session, name: str, email: str, password: str) -> User | N
         return None
 
     user = User(
-        name=name,
         email=email,
         password_hash=hash_password(password),
         role=UserRole.USER,
