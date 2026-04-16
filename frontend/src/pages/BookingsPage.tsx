@@ -1,4 +1,8 @@
 import { useEffect, useMemo, useState } from "react"
+import dayjs from "dayjs"
+import type { Dayjs } from "dayjs"
+import { TimePicker } from "@mui/x-date-pickers/TimePicker"
+import { renderMultiSectionDigitalClockTimeView } from "@mui/x-date-pickers/timeViewRenderers"
 import { bookingService } from "../services/bookingService"
 import { mockUser } from "../services/mockData"
 import { roomService } from "../services/roomService"
@@ -24,6 +28,98 @@ const emptyForm: BookingFormInput = {
   startTime: "",
   endTime: "",
   participants: [],
+}
+
+const timePickerSx = {
+  minWidth: 0,
+  width: "100%",
+  "& .MuiInputBase-root": {
+    height: 44,
+    borderRadius: "0.5rem",
+    backgroundColor: "rgb(255 255 255)",
+    color: "rgb(15 23 42)",
+    fontFamily: "inherit",
+    fontWeight: 700,
+  },
+  "& .MuiInputBase-input": {
+    padding: "0 0 0 0.75rem",
+    height: 44,
+  },
+  "& .MuiInputAdornment-root": {
+    marginLeft: 0,
+  },
+  "& .MuiIconButton-root": {
+    marginRight: "0.25rem",
+    color: "rgb(71 85 105)",
+  },
+  "& .MuiOutlinedInput-notchedOutline": {
+    borderColor: "rgb(226 232 240)",
+  },
+  "& .MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline": {
+    borderColor: "rgb(37 99 235)",
+  },
+  "& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline": {
+    borderColor: "rgb(37 99 235)",
+    borderWidth: "1px",
+  },
+  "& .MuiOutlinedInput-root.Mui-focused": {
+    boxShadow: "0 0 0 4px rgb(37 99 235 / 0.14)",
+  },
+  ':where([data-theme="dark"], [data-theme="dark"] *) & .MuiInputBase-root': {
+    backgroundColor: "rgb(15 23 42)",
+    color: "rgb(248 250 252)",
+  },
+  ':where([data-theme="dark"], [data-theme="dark"] *) & .MuiIconButton-root': {
+    color: "rgb(203 213 225)",
+  },
+  ':where([data-theme="dark"], [data-theme="dark"] *) & .MuiOutlinedInput-notchedOutline':
+    {
+      borderColor: "rgb(51 65 85)",
+    },
+  ':where([data-theme="dark"], [data-theme="dark"] *) & .MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline':
+    {
+      borderColor: "rgb(96 165 250)",
+    },
+  ':where([data-theme="dark"], [data-theme="dark"] *) & .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline':
+    {
+      borderColor: "rgb(96 165 250)",
+    },
+  ':where([data-theme="dark"], [data-theme="dark"] *) & .MuiOutlinedInput-root.Mui-focused':
+    {
+      boxShadow: "0 0 0 4px rgb(96 165 250 / 0.16)",
+    },
+}
+
+const timePickerPopperSx = {
+  "& .MuiPaper-root": {
+    borderRadius: "0.75rem",
+    border: "1px solid rgb(226 232 240)",
+    boxShadow: "0 18px 40px rgb(15 23 42 / 0.18)",
+  },
+  "& .MuiMenuItem-root.Mui-selected": {
+    backgroundColor: "rgb(37 99 235)",
+    color: "rgb(255 255 255)",
+  },
+  "& .MuiMenuItem-root.Mui-selected:hover": {
+    backgroundColor: "rgb(29 78 216)",
+  },
+  ':where([data-theme="dark"], [data-theme="dark"] *) & .MuiPaper-root': {
+    borderColor: "rgb(51 65 85)",
+    backgroundColor: "rgb(15 23 42)",
+    color: "rgb(248 250 252)",
+  },
+  ':where([data-theme="dark"], [data-theme="dark"] *) & .MuiMenuItem-root': {
+    color: "rgb(248 250 252)",
+  },
+  ':where([data-theme="dark"], [data-theme="dark"] *) & .MuiMenuItem-root:hover':
+    {
+      backgroundColor: "rgb(30 41 59)",
+    },
+  ':where([data-theme="dark"], [data-theme="dark"] *) & .MuiMenuItem-root.Mui-selected':
+    {
+      backgroundColor: "rgb(96 165 250)",
+      color: "rgb(15 23 42)",
+    },
 }
 
 const dateFormatter = new Intl.DateTimeFormat("pt-BR", {
@@ -62,6 +158,41 @@ function splitDateTime(value: string) {
     date,
     time: time.slice(0, 5),
   }
+}
+
+function normalizeQuarterHour(value: string | null) {
+  if (!value) return ""
+
+  const [hourPart, minutePart = "0"] = value.split(":")
+  const hour = Number(hourPart)
+  const minute = Number(minutePart)
+
+  if (!Number.isFinite(hour) || !Number.isFinite(minute)) return ""
+
+  const normalizedMinute = Math.min(45, Math.round(minute / 15) * 15)
+
+  return `${String(hour).padStart(2, "0")}:${String(normalizedMinute).padStart(
+    2,
+    "0",
+  )}`
+}
+
+function timeStringToDayjs(value: string) {
+  if (!value) return null
+
+  const [hourPart, minutePart = "0"] = value.split(":")
+  const hour = Number(hourPart)
+  const minute = Number(minutePart)
+
+  if (!Number.isFinite(hour) || !Number.isFinite(minute)) return null
+
+  return dayjs().hour(hour).minute(minute).second(0).millisecond(0)
+}
+
+function dayjsToTimeString(value: Dayjs | null) {
+  if (!value?.isValid()) return ""
+
+  return normalizeQuarterHour(value.format("HH:mm"))
 }
 
 function composeBookingInput(form: BookingFormInput): BookingInput {
@@ -137,6 +268,16 @@ export default function BookingsPage() {
     setEditingId(null)
     setForm({ ...emptyForm, roomId: rooms[0]?.id || "" })
     setParticipantsText("")
+  }
+
+  function updateTimeField(
+    field: "startTime" | "endTime",
+    value: Dayjs | null,
+  ) {
+    setForm(current => ({
+      ...current,
+      [field]: dayjsToTimeString(value),
+    }))
   }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -292,32 +433,55 @@ export default function BookingsPage() {
 
               <label className={labelClass}>
                 Inicio
-                <input
-                  className={fieldClass}
-                  type="time"
-                  step="900"
-                  value={form.startTime}
-                  onChange={event =>
-                    setForm(current => ({
-                      ...current,
-                      startTime: event.target.value,
-                    }))
-                  }
-                  required
+                <TimePicker
+                  ampm={false}
+                  format="HH:mm"
+                  minutesStep={15}
+                  onChange={value => updateTimeField("startTime", value)}
+                  openTo="hours"
+                  slotProps={{
+                    popper: { sx: timePickerPopperSx },
+                    textField: {
+                      fullWidth: true,
+                      required: true,
+                      size: "small",
+                      sx: timePickerSx,
+                    },
+                  }}
+                  timeSteps={{ minutes: 15 }}
+                  value={timeStringToDayjs(form.startTime)}
+                  viewRenderers={{
+                    hours: renderMultiSectionDigitalClockTimeView,
+                    minutes: renderMultiSectionDigitalClockTimeView,
+                  }}
+                  views={["hours", "minutes"]}
                 />
               </label>
 
               <label className={labelClass}>
                 Fim
-                <input
-                  className={fieldClass}
-                  type="time"
-                  step="900"
-                  value={form.endTime}
-                  onChange={event =>
-                    setForm(current => ({ ...current, endTime: event.target.value }))
-                  }
-                  required
+                <TimePicker
+                  ampm={false}
+                  format="HH:mm"
+                  minutesStep={15}
+                  onChange={value => updateTimeField("endTime", value)}
+                  openTo="hours"
+                  slotProps={{
+                    popper: { sx: timePickerPopperSx },
+                    textField: {
+                      fullWidth: true,
+                      required: true,
+                      size: "small",
+                      sx: timePickerSx,
+                    },
+                  }}
+                  timeSteps={{ minutes: 15 }}
+                  value={timeStringToDayjs(form.endTime)}
+                  viewRenderers={{
+                    hours: renderMultiSectionDigitalClockTimeView,
+                    minutes: renderMultiSectionDigitalClockTimeView,
+                  }}
+                  views={["hours", "minutes"]}
                 />
               </label>
             </div>
@@ -406,7 +570,7 @@ export default function BookingsPage() {
                       ? "border-slate-200 bg-slate-100/80 text-slate-500 dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-400"
                       : createdByMe
                         ? "border-blue-200/90 bg-white/95 text-[#172033] dark:border-blue-400/30 dark:bg-[#172033]/95 dark:text-slate-50"
-                      : "border-slate-200/90 bg-white/90 text-[#172033] dark:border-slate-700/90 dark:bg-[#172033]/90 dark:text-slate-50"
+                        : "border-slate-200/90 bg-white/90 text-[#172033] dark:border-slate-700/90 dark:bg-[#172033]/90 dark:text-slate-50"
                   }`}
                   key={booking.id}
                 >
@@ -436,7 +600,7 @@ export default function BookingsPage() {
 
                           {isParticipantOnly && (
                             <span className="inline-flex min-h-7 items-center rounded-full border border-teal-600/25 bg-teal-50 px-2.5 text-xs font-extrabold text-teal-800 dark:border-teal-400/35 dark:bg-teal-950/35 dark:text-teal-200">
-                              Você participa
+                              Voce participa
                             </span>
                           )}
                         </div>
@@ -487,7 +651,7 @@ export default function BookingsPage() {
 
                       <div className="min-w-0 rounded-lg border border-slate-200/80 bg-slate-50/80 px-3 py-2.5 dark:border-slate-700/80 dark:bg-slate-950/30">
                         <span className="block text-[0.72rem] font-extrabold uppercase tracking-[0.04em] text-slate-400 dark:text-slate-500">
-                          Horário
+                          Horario
                         </span>
                         <strong className="mt-1 block text-sm text-[#172033] dark:text-slate-50">
                           {formatTimeRange(booking.start_at, booking.end_at)}
