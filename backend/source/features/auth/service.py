@@ -1,7 +1,7 @@
 from sqlalchemy.orm import Session
 
-from source.core.security import create_access_token, verify_password
-from source.models.user import User
+from source.core.security import create_access_token, verify_password, hash_password
+from source.models.user import User, UserRole
 
 
 def authenticate_user(db: Session, email: str, password: str) -> User | None:
@@ -32,3 +32,24 @@ def login_user(db: Session, email: str, password: str) -> str | None:
             "email": user.email,
         }
     )
+
+def register_user(db: Session, name: str, email: str, password: str) -> User | None:
+
+    existing = db.query(User).filter(User.email == email).first()
+
+    if existing:
+        return None
+
+    user = User(
+        name=name,
+        email=email,
+        password_hash=hash_password(password),
+        role=UserRole.USER,
+        is_active=True,
+    )
+
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+
+    return user
