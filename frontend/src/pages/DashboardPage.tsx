@@ -2,8 +2,14 @@ import { useEffect, useState } from "react"
 
 const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:8000"
 
+type UserProfile = {
+  email: string
+  role: string
+  is_active: boolean
+}
+
 export default function DashboardPage() {
-  const [user, setUser] = useState<any>(null)
+  const [user, setUser] = useState<UserProfile | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -42,23 +48,63 @@ export default function DashboardPage() {
     window.location.href = "/login"
   }
 
-  if (loading) {
-    return <p>Carregando...</p>
+  if (loading || !user) {
+    return (
+      <main className="app-page">
+        <div className="loading-state">
+          <span className="spinner" aria-hidden="true" />
+          <span>Carregando...</span>
+        </div>
+      </main>
+    )
   }
 
   return (
-    <div style={{ padding: 40, fontFamily: "sans-serif" }}>
+    <main className="app-page">
+      <section className="dashboard-shell">
+        <header className="dashboard-header">
+          <div>
+            <span className="auth-badge">Área autenticada</span>
+            <h1>Dashboard</h1>
+            <p>Resumo do usuário conectado ao sistema de reservas.</p>
+          </div>
 
-      <h1>Dashboard</h1>
+          <button className="secondary-button" onClick={logout}>
+            Logout
+          </button>
+        </header>
 
-      <p><b>Email:</b> {user.email}</p>
-      <p><b>Role:</b> {user.role}</p>
-      <p><b>Ativo:</b> {user.is_active ? "Sim" : "Não"}</p>
+        <div className="dashboard-card">
+          <div className="dashboard-card-header">
+            <div className="brand-mark small" aria-hidden="true">
+              <span>MW</span>
+            </div>
+            <div>
+              <h2>Perfil</h2>
+              <p>Dados retornados pela API para a sessão atual.</p>
+            </div>
+          </div>
 
-      <button onClick={logout}>
-        Logout
-      </button>
-
-    </div>
+          <dl className="profile-grid">
+            <div>
+              <dt>Email</dt>
+              <dd>{user.email}</dd>
+            </div>
+            <div>
+              <dt>Role</dt>
+              <dd>{user.role}</dd>
+            </div>
+            <div>
+              <dt>Status</dt>
+              <dd>
+                <span className={user.is_active ? "status-pill active" : "status-pill"}>
+                  {user.is_active ? "Ativo" : "Inativo"}
+                </span>
+              </dd>
+            </div>
+          </dl>
+        </div>
+      </section>
+    </main>
   )
 }

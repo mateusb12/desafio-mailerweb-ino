@@ -1,4 +1,5 @@
 import { useState } from "react"
+import heroImage from "../assets/hero.png"
 
 const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:8000"
 
@@ -47,12 +48,18 @@ export default function LoginPage() {
     <div className="auth-page">
       <div className="auth-shell">
         <div className="auth-brand">
+          <div className="brand-mark" aria-hidden="true">
+            <span>MW</span>
+          </div>
           <span className="auth-badge">Meeting Room Booking</span>
-          <h1>Acesse sua conta</h1>
+          <h1>Reservas MailerWeb</h1>
           <p>
             Faça login para acessar o sistema de reservas e acompanhar suas
             reuniões.
           </p>
+          <div className="auth-hero" aria-hidden="true">
+            <img src={heroImage} alt="" />
+          </div>
         </div>
 
         <div className="auth-card">
@@ -90,6 +97,9 @@ export default function LoginPage() {
 
             {error && (
               <div className="auth-error" role="alert" aria-live="polite">
+                <span className="auth-error-icon" aria-hidden="true">
+                  !
+                </span>
                 {error}
               </div>
             )}
