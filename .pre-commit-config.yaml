@@ -1,0 +1,28 @@
+default_language_version:
+  python: python3
+
+repos:
+  - repo: local
+    hooks:
+      - id: clean-ai-comments
+        name: Clean AI Comments
+        entry: poetry --directory backend run python -m clean_ai_comments.cleaner --apply
+        language: system
+        files: ^backend/(source|tests)/.*\.py$
+        pass_filenames: true
+        require_serial: true
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.14.6
+    hooks:
+      - id: ruff
+        name: ruff
+        args: ["--config", "backend/pyproject.toml"]
+        files: ^backend/(source|tests)/.*\.py$
+
+  - repo: https://github.com/pycqa/flake8
+    rev: 7.3.0
+    hooks:
+      - id: flake8
+        args: ["--config=setup.cfg"]
+        files: ^backend/(source|tests)/.*\.py$

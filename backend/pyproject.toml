@@ -21,6 +21,9 @@ dependencies = [
 [tool.poetry]
 package-mode = false
 
+[tool.poetry.scripts]
+clean-ai-comments = "clean_ai_comments.cleaner:main"
+
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]
@@ -29,5 +32,63 @@ build-backend = "poetry.core.masonry.api"
 [dependency-groups]
 dev = [
     "pytest (>=9.0.3,<10.0.0)",
-    "httpx (>=0.28.1,<0.29.0)"
+    "httpx (>=0.28.1,<0.29.0)",
+    "flake8 (>=7.3.0,<8.0.0)",
+    "pre-commit (>=4.3.0,<5.0.0)",
+    "libcst (>=1.8.6,<2.0.0)",
+    "black (>=24.4.2,<25.0.0)",
+    "ruff (>=0.14.5,<0.15.0)"
 ]
+
+[tool.ruff]
+line-length = 160
+exclude = [
+    "alembic",
+    ".venv",
+    ".ruff_cache",
+    "__pycache__",
+]
+
+[tool.ruff.lint]
+preview = true
+extend-select = [
+    "E",
+    "F",
+    "W",
+    "C90",
+]
+ignore = [
+    "E501",
+    "E302",
+    "W292",
+    "D203",
+    "D212",
+    "D213",
+    "D100",
+    "D101",
+    "D102",
+    "D205",
+]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "lf"
+docstring-code-format = true
+docstring-code-line-length = 120
+
+[tool.ruff.lint.mccabe]
+max-complexity = 20
+
+[tool.black]
+line-length = 160
+target-version = ["py312"]
+skip-string-normalization = true
+exclude = '''
+(
+  alembic
+  | \.venv
+  | \.ruff_cache
+  | __pycache__
+)
+'''
