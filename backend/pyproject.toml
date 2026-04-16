@@ -41,7 +41,7 @@ dev = [
 ]
 
 [tool.ruff]
-line-length = 160
+line-length = 140
 exclude = [
     "alembic",
     ".venv",
@@ -75,13 +75,13 @@ quote-style = "double"
 indent-style = "space"
 line-ending = "lf"
 docstring-code-format = true
-docstring-code-line-length = 120
+docstring-code-line-length = 140
 
 [tool.ruff.lint.mccabe]
 max-complexity = 20
 
 [tool.black]
-line-length = 160
+line-length = 140
 target-version = ["py312"]
 skip-string-normalization = true
 exclude = '''
