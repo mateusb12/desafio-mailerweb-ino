@@ -28,9 +28,10 @@ services:
       DATABASE_URL: postgresql://postgres:postgres@db:5432/meeting_rooms
     volumes:
       - ./backend:/app
+      - /app/.venv
     ports:
       - "8000:8000"
-    command: poetry run uvicorn source.main:app --host 0.0.0.0 --port 8000 --reload
+    command: uvicorn source.main:app --host 0.0.0.0 --port 8000 --reload
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 10s
