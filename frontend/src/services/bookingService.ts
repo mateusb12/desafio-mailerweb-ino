@@ -1,5 +1,5 @@
 import { clone, wait } from "./mockUtils"
-import { mockBookings } from "./mockData"
+import { mockBookings, mockUser } from "./mockData"
 import { ServiceError } from "./serviceError"
 import type { Booking, BookingInput } from "../types/domain"
 
@@ -99,6 +99,11 @@ export async function createBooking(input: BookingInput): Promise<Booking> {
   const booking: Booking = {
     id: `booking-${crypto.randomUUID()}`,
     ...normalized,
+    createdBy: {
+      id: mockUser.id,
+      name: mockUser.name,
+      email: mockUser.email,
+    },
     status: "active",
   }
 

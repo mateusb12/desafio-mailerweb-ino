@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from "react"
+import { useAuth } from "../hooks/authContext"
 import { bookingService } from "../services/bookingService"
+import { mockUser } from "../services/mockData"
 import { roomService } from "../services/roomService"
 import { ServiceError } from "../services/serviceError"
 import type { Booking, BookingInput, Room } from "../types/domain"
@@ -46,6 +48,7 @@ function getErrorMessage(error: unknown) {
 }
 
 export default function BookingsPage() {
+  const { user } = useAuth()
   const [rooms, setRooms] = useState<Room[]>([])
   const [bookings, setBookings] = useState<Booking[]>([])
   const [form, setForm] = useState<BookingInput>(emptyForm)
@@ -61,6 +64,7 @@ export default function BookingsPage() {
     () => new Map(rooms.map(room => [room.id, room])),
     [rooms],
   )
+  const currentUser = user ?? mockUser
 
   async function loadData() {
     setLoading(true)
@@ -321,6 +325,17 @@ export default function BookingsPage() {
             {bookings.map(booking => {
               const room = roomById.get(booking.roomId)
               const isCancelled = booking.status === "cancelled"
+              const creatorName = booking.createdBy.name ?? booking.createdBy.email
+              const createdByMe =
+                booking.createdBy.id === currentUser.id ||
+                booking.createdBy.email.toLowerCase() ===
+                  currentUser.email.toLowerCase()
+              const participates = booking.participants.some(
+                participant =>
+                  participant.toLowerCase() === currentUser.email.toLowerCase(),
+              )
+              const isParticipantOnly = participates && !createdByMe
+              const canManage = createdByMe && !isCancelled
 
               return (
                 <article
@@ -347,12 +362,32 @@ export default function BookingsPage() {
                         >
                           {isCancelled ? "Cancelada" : "Ativa"}
                         </span>
+
+                        <span
+                          className={`inline-flex min-h-7 items-center rounded-full border px-2.5 text-xs font-extrabold ${
+                            createdByMe
+                              ? "border-blue-600/25 bg-blue-50 text-blue-800 dark:border-blue-400/35 dark:bg-blue-950/35 dark:text-blue-200"
+                              : "border-slate-300 bg-white text-slate-600 dark:border-slate-600 dark:bg-slate-950 dark:text-slate-300"
+                          }`}
+                        >
+                          {createdByMe ? "Criada por mim" : "Criada por outra pessoa"}
+                        </span>
+
+                        {isParticipantOnly && (
+                          <span className="inline-flex min-h-7 items-center rounded-full border border-teal-600/25 bg-teal-50 px-2.5 text-xs font-extrabold text-teal-800 dark:border-teal-400/35 dark:bg-teal-950/35 dark:text-teal-200">
+                            Voce participa
+                          </span>
+                        )}
                       </div>
 
                       <p className="mb-0 mt-2 text-sm leading-relaxed text-slate-500 dark:text-slate-300">
                         {room?.name ?? "Sala nao encontrada"} ·{" "}
                         {formatDateTime(booking.start_at)} ate{" "}
                         {formatDateTime(booking.end_at)}
+                      </p>
+
+                      <p className="mb-0 mt-2 break-words text-sm leading-relaxed text-slate-500 dark:text-slate-300">
+                        Criador: {creatorName} ({booking.createdBy.email})
                       </p>
 
                       <p className="mb-0 mt-2 break-words text-sm leading-relaxed text-slate-500 dark:text-slate-300">
@@ -364,22 +399,32 @@ export default function BookingsPage() {
 
                     {!isCancelled && (
                       <div className="flex flex-none flex-wrap gap-2 max-[560px]:w-full">
-                        <button
-                          className="inline-flex min-h-9 items-center rounded-lg border border-slate-300 bg-white px-3 text-sm font-extrabold text-slate-600 hover:border-blue-600 hover:text-blue-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-blue-400 dark:hover:text-blue-300"
-                          type="button"
-                          onClick={() => startEditing(booking)}
-                        >
-                          Editar
-                        </button>
+                        {canManage ? (
+                          <>
+                            <button
+                              className="inline-flex min-h-9 items-center rounded-lg border border-slate-300 bg-white px-3 text-sm font-extrabold text-slate-600 hover:border-blue-600 hover:text-blue-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-blue-400 dark:hover:text-blue-300"
+                              type="button"
+                              onClick={() => startEditing(booking)}
+                            >
+                              Editar
+                            </button>
 
-                        <button
-                          className="inline-flex min-h-9 items-center rounded-lg border border-red-200 bg-red-50 px-3 text-sm font-extrabold text-red-700 hover:border-red-400 hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-red-400/35 dark:bg-red-950/35 dark:text-red-200 dark:hover:border-red-300"
-                          type="button"
-                          disabled={cancellingId === booking.id}
-                          onClick={() => handleCancelBooking(booking.id)}
-                        >
-                          {cancellingId === booking.id ? "Cancelando..." : "Cancelar"}
-                        </button>
+                            <button
+                              className="inline-flex min-h-9 items-center rounded-lg border border-red-200 bg-red-50 px-3 text-sm font-extrabold text-red-700 hover:border-red-400 hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-red-400/35 dark:bg-red-950/35 dark:text-red-200 dark:hover:border-red-300"
+                              type="button"
+                              disabled={cancellingId === booking.id}
+                              onClick={() => handleCancelBooking(booking.id)}
+                            >
+                              {cancellingId === booking.id
+                                ? "Cancelando..."
+                                : "Cancelar"}
+                            </button>
+                          </>
+                        ) : (
+                          <span className="inline-flex min-h-9 items-center rounded-lg border border-slate-300 bg-slate-50 px-3 text-sm font-extrabold text-slate-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400">
+                            Somente leitura
+                          </span>
+                        )}
                       </div>
                     )}
                   </div>

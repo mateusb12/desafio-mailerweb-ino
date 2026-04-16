@@ -4,6 +4,7 @@ export type BookingStatus = "active" | "cancelled"
 
 export type UserProfile = {
   id: string
+  name?: string
   email: string
   role: UserRole
   is_active: boolean
@@ -19,6 +20,7 @@ export type Booking = {
   id: string
   title: string
   roomId: string
+  createdBy: Pick<UserProfile, "id" | "email" | "name">
   start_at: string
   end_at: string
   status: BookingStatus
