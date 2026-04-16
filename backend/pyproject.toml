@@ -92,3 +92,6 @@ exclude = '''
   | __pycache__
 )
 '''
+
+[tool.pytest.ini_options]
+pythonpath = ["."]

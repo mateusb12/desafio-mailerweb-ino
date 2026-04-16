@@ -57,14 +57,14 @@ Evidencias principais:
 - [x] Criar modelo `OutboxEvent`.
 - [x] Criar migracao inicial das tabelas.
 - [x] Garantir tipo UUID corretamente em todos os bancos suportados.
-- [ ] Adicionar constraint/check para `rooms.capacity > 0`.
-- [ ] Criar teste garantindo que `rooms.capacity <= 0` e rejeitado pela aplicacao e/ou banco.
-- [ ] Adicionar constraint/check para status valido em reservas.
-- [ ] Criar teste garantindo que status invalido de reserva e rejeitado pela aplicacao e/ou banco.
-- [ ] Adicionar constraint/check para status valido em eventos outbox.
-- [ ] Criar teste garantindo que status invalido de outbox e rejeitado pela aplicacao e/ou banco.
-- [ ] Adicionar relacionamentos ORM completos entre booking, room, creator e participants.
-- [ ] Adicionar campos uteis de auditoria quando necessario, como `updated_at` e `canceled_at`.
+- [x] Adicionar constraint/check para `rooms.capacity > 0`.
+- [x] Criar teste garantindo que `rooms.capacity <= 0` e rejeitado pela aplicacao e/ou banco.
+- [x] Adicionar constraint/check para status valido em reservas.
+- [x] Criar teste garantindo que status invalido de reserva e rejeitado pela aplicacao e/ou banco.
+- [x] Adicionar constraint/check para status valido em eventos outbox.
+- [x] Criar teste garantindo que status invalido de outbox e rejeitado pela aplicacao e/ou banco.
+- [x] Adicionar relacionamentos ORM completos entre booking, room, creator e participants.
+- [x] Adicionar campos uteis de auditoria quando necessario, como `updated_at` e `canceled_at`.
 
 Observacao: para constraints e regras de modelo, preferir testes unitarios quando a regra estiver no dominio/schema e testes de integracao com banco quando a garantia depender de constraint, indice ou transacao.
 
