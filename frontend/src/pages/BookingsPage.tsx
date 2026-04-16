@@ -51,19 +51,8 @@ function formatTime(value: string) {
   return timeFormatter.format(new Date(value))
 }
 
-function formatBookingSchedule(startAt: string, endAt: string) {
-  const start = new Date(startAt)
-  const end = new Date(endAt)
-
-  if (start.toDateString() === end.toDateString()) {
-    return `${formatDateShort(startAt)} · ${formatTime(startAt)} às ${formatTime(
-      endAt,
-    )}`
-  }
-
-  return `${formatDateShort(startAt)} · ${formatTime(startAt)} às ${formatDateShort(
-    endAt,
-  )} · ${formatTime(endAt)}`
+function formatTimeRange(startAt: string, endAt: string) {
+  return `${formatTime(startAt)} às ${formatTime(endAt)}`
 }
 
 function splitDateTime(value: string) {
@@ -412,7 +401,7 @@ export default function BookingsPage() {
 
               return (
                 <article
-                  className={`min-w-0 rounded-xl border p-4 shadow-[0_14px_30px_rgba(23,32,51,0.07)] ${
+                  className={`min-w-0 rounded-xl border p-5 shadow-[0_14px_30px_rgba(23,32,51,0.07)] ${
                     isCancelled
                       ? "border-slate-200 bg-slate-100/80 text-slate-500 dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-400"
                       : createdByMe
@@ -421,76 +410,124 @@ export default function BookingsPage() {
                   }`}
                   key={booking.id}
                 >
-                  <div className="flex items-start justify-between gap-4 max-[560px]:flex-col">
-                    <div className="min-w-0">
-                      <div className="flex flex-wrap items-center gap-2">
+                  <div className="grid min-w-0 gap-4">
+                    <div className="flex items-start justify-between gap-4 max-[680px]:flex-col">
+                      <div className="min-w-0">
                         <h3 className="m-0 text-lg tracking-normal">
                           {booking.title}
                         </h3>
 
-                        <span
-                          className={`inline-flex min-h-7 items-center rounded-full border px-2.5 text-xs font-extrabold ${
-                            isCancelled
-                              ? "border-slate-300 bg-white text-slate-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-400"
-                              : "border-green-600/25 bg-green-50 text-green-800 dark:border-green-400/35 dark:bg-green-950/35 dark:text-green-200"
-                          }`}
-                        >
-                          {isCancelled ? "Cancelada" : "Ativa"}
-                        </span>
-
-                        {createdByMe && (
-                          <span className="inline-flex min-h-7 items-center rounded-full border border-blue-600/25 bg-blue-50 px-2.5 text-xs font-extrabold text-blue-800 dark:border-blue-400/35 dark:bg-blue-950/35 dark:text-blue-200">
-                            Criada por mim
+                        <div className="mt-2 flex flex-wrap items-center gap-2">
+                          <span
+                            className={`inline-flex min-h-7 items-center rounded-full border px-2.5 text-xs font-extrabold ${
+                              isCancelled
+                                ? "border-slate-300 bg-white text-slate-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-400"
+                                : "border-green-600/25 bg-green-50 text-green-800 dark:border-green-400/35 dark:bg-green-950/35 dark:text-green-200"
+                            }`}
+                          >
+                            {isCancelled ? "Cancelada" : "Ativa"}
                           </span>
-                        )}
 
-                        {isParticipantOnly && (
-                          <span className="inline-flex min-h-7 items-center rounded-full border border-teal-600/25 bg-teal-50 px-2.5 text-xs font-extrabold text-teal-800 dark:border-teal-400/35 dark:bg-teal-950/35 dark:text-teal-200">
-                            Voce participa
-                          </span>
-                        )}
+                          {createdByMe && (
+                            <span className="inline-flex min-h-7 items-center rounded-full border border-blue-600/25 bg-blue-50 px-2.5 text-xs font-extrabold text-blue-800 dark:border-blue-400/35 dark:bg-blue-950/35 dark:text-blue-200">
+                              Criada por mim
+                            </span>
+                          )}
+
+                          {isParticipantOnly && (
+                            <span className="inline-flex min-h-7 items-center rounded-full border border-teal-600/25 bg-teal-50 px-2.5 text-xs font-extrabold text-teal-800 dark:border-teal-400/35 dark:bg-teal-950/35 dark:text-teal-200">
+                              Você participa
+                            </span>
+                          )}
+                        </div>
                       </div>
 
-                      <p className="mb-0 mt-2 text-sm leading-relaxed text-slate-500 dark:text-slate-300">
-                        {room?.name ?? "Sala nao encontrada"} ·{" "}
-                        {formatBookingSchedule(booking.start_at, booking.end_at)}
-                      </p>
+                      {canManage && (
+                        <div className="flex flex-none flex-wrap justify-end gap-2 max-[680px]:w-full max-[680px]:justify-start">
+                          <button
+                            className="inline-flex min-h-9 items-center rounded-lg border border-slate-300 bg-white px-3 text-sm font-extrabold text-slate-600 hover:border-blue-600 hover:text-blue-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-blue-400 dark:hover:text-blue-300"
+                            type="button"
+                            onClick={() => startEditing(booking)}
+                          >
+                            Editar
+                          </button>
 
+                          <button
+                            className="inline-flex min-h-9 items-center rounded-lg border border-red-200 bg-red-50 px-3 text-sm font-extrabold text-red-700 hover:border-red-400 hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-red-400/35 dark:bg-red-950/35 dark:text-red-200 dark:hover:border-red-300"
+                            type="button"
+                            disabled={cancellingId === booking.id}
+                            onClick={() => handleCancelBooking(booking.id)}
+                          >
+                            {cancellingId === booking.id
+                              ? "Cancelando..."
+                              : "Cancelar"}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-3">
+                      <div className="min-w-0 rounded-lg border border-slate-200/80 bg-slate-50/80 px-3 py-2.5 dark:border-slate-700/80 dark:bg-slate-950/30">
+                        <span className="block text-[0.72rem] font-extrabold uppercase tracking-[0.04em] text-slate-400 dark:text-slate-500">
+                          Sala
+                        </span>
+                        <strong className="mt-1 block break-words text-sm text-[#172033] dark:text-slate-50">
+                          {room?.name ?? "Sala nao encontrada"}
+                        </strong>
+                      </div>
+
+                      <div className="min-w-0 rounded-lg border border-slate-200/80 bg-slate-50/80 px-3 py-2.5 dark:border-slate-700/80 dark:bg-slate-950/30">
+                        <span className="block text-[0.72rem] font-extrabold uppercase tracking-[0.04em] text-slate-400 dark:text-slate-500">
+                          Data
+                        </span>
+                        <strong className="mt-1 block text-sm text-[#172033] dark:text-slate-50">
+                          {formatDateShort(booking.start_at)}
+                        </strong>
+                      </div>
+
+                      <div className="min-w-0 rounded-lg border border-slate-200/80 bg-slate-50/80 px-3 py-2.5 dark:border-slate-700/80 dark:bg-slate-950/30">
+                        <span className="block text-[0.72rem] font-extrabold uppercase tracking-[0.04em] text-slate-400 dark:text-slate-500">
+                          Horário
+                        </span>
+                        <strong className="mt-1 block text-sm text-[#172033] dark:text-slate-50">
+                          {formatTimeRange(booking.start_at, booking.end_at)}
+                        </strong>
+                      </div>
+                    </div>
+
+                    <div className="grid min-w-0 gap-3 border-t border-slate-200/80 pt-4 dark:border-slate-700/80">
                       {!createdByMe && (
-                        <p className="mb-0 mt-2 break-words text-sm leading-relaxed text-slate-500 dark:text-slate-300">
-                          Criador: {creatorName} ({booking.createdBy.email})
+                        <p className="m-0 break-words text-sm leading-relaxed text-slate-500 dark:text-slate-300">
+                          <span className="font-extrabold text-slate-600 dark:text-slate-200">
+                            Criador:
+                          </span>{" "}
+                          {creatorName} ({booking.createdBy.email})
                         </p>
                       )}
 
-                      <p className="mb-0 mt-2 break-words text-sm leading-relaxed text-slate-500 dark:text-slate-300">
-                        {booking.participants.length > 0
-                          ? booking.participants.join(", ")
-                          : "Sem participantes informados"}
-                      </p>
-                    </div>
+                      <div className="min-w-0">
+                        <span className="block text-sm font-extrabold text-slate-600 dark:text-slate-200">
+                          Participantes
+                        </span>
 
-                    {canManage && (
-                      <div className="flex flex-none flex-wrap gap-2 max-[560px]:w-full">
-                        <button
-                          className="inline-flex min-h-9 items-center rounded-lg border border-slate-300 bg-white px-3 text-sm font-extrabold text-slate-600 hover:border-blue-600 hover:text-blue-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-blue-400 dark:hover:text-blue-300"
-                          type="button"
-                          onClick={() => startEditing(booking)}
-                        >
-                          Editar
-                        </button>
-
-                        <button
-                          className="inline-flex min-h-9 items-center rounded-lg border border-red-200 bg-red-50 px-3 text-sm font-extrabold text-red-700 hover:border-red-400 hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-red-400/35 dark:bg-red-950/35 dark:text-red-200 dark:hover:border-red-300"
-                          type="button"
-                          disabled={cancellingId === booking.id}
-                          onClick={() => handleCancelBooking(booking.id)}
-                        >
-                          {cancellingId === booking.id
-                            ? "Cancelando..."
-                            : "Cancelar"}
-                        </button>
+                        {booking.participants.length > 0 ? (
+                          <div className="mt-2 flex flex-wrap gap-2">
+                            {booking.participants.map(participant => (
+                              <span
+                                className="inline-flex min-h-8 max-w-full items-center rounded-lg border border-slate-200 bg-white px-2.5 text-sm font-bold text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
+                                key={participant}
+                              >
+                                <span className="truncate">{participant}</span>
+                              </span>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="m-0 mt-1 text-sm text-slate-500 dark:text-slate-300">
+                            Sem participantes informados
+                          </p>
+                        )}
                       </div>
-                    )}
+                    </div>
                   </div>
                 </article>
               )
