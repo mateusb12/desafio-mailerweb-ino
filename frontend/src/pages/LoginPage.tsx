@@ -1,18 +1,57 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
+import ThemeToggle from "../components/ThemeToggle"
 import heroImage from "../assets/hero.png"
 
 const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:8000"
+type ApiStatus = "checking" | "online" | "offline"
 
 export default function LoginPage() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
+  const [apiStatus, setApiStatus] = useState<ApiStatus>("checking")
+
+  useEffect(() => {
+    const controller = new AbortController()
+    const timeout = window.setTimeout(() => controller.abort(), 4500)
+
+    async function checkApiHealth() {
+      setApiStatus("checking")
+
+      try {
+        const response = await fetch(`${API_URL}/health`, {
+          cache: "no-store",
+          signal: controller.signal,
+        })
+
+        setApiStatus(response.ok ? "online" : "offline")
+      } catch {
+        setApiStatus("offline")
+      } finally {
+        window.clearTimeout(timeout)
+      }
+    }
+
+    checkApiHealth()
+
+    return () => {
+      window.clearTimeout(timeout)
+      controller.abort()
+    }
+  }, [])
+
+  const isApiAvailable = apiStatus === "online"
+  const apiStatusLabel = {
+    checking: "Verificando API...",
+    online: "API online",
+    offline: "API offline",
+  }[apiStatus]
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
 
-    if (loading) return
+    if (loading || !isApiAvailable) return
 
     setError("")
     setLoading(true)
@@ -46,6 +85,10 @@ export default function LoginPage() {
 
   return (
     <div className="auth-page">
+      <div className="top-actions">
+        <ThemeToggle />
+      </div>
+
       <div className="auth-shell">
         <div className="auth-brand">
           <div className="brand-mark" aria-hidden="true">
@@ -63,6 +106,17 @@ export default function LoginPage() {
         </div>
 
         <div className="auth-card">
+          <div className="auth-card-status">
+            <div
+              className={`api-status api-status-${apiStatus}`}
+              title={`Backend: ${API_URL}`}
+              aria-live="polite"
+            >
+              <span className="api-status-dot" aria-hidden="true" />
+              <span>{apiStatusLabel}</span>
+            </div>
+          </div>
+
           <div className="auth-card-header">
             <h2>Entrar</h2>
             <p>Digite suas credenciais para continuar</p>
@@ -107,9 +161,13 @@ export default function LoginPage() {
             <button
               type="submit"
               className="auth-submit"
-              disabled={loading || !email || !password}
+              disabled={loading || !email || !password || !isApiAvailable}
             >
-              {loading ? "Entrando..." : "Entrar"}
+              {loading
+                ? "Entrando..."
+                : isApiAvailable
+                  ? "Entrar"
+                  : "Aguardando API"}
             </button>
           </form>
         </div>

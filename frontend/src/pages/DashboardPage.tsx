@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react"
+import ThemeToggle from "../components/ThemeToggle"
 
 const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:8000"
 
@@ -69,9 +70,12 @@ export default function DashboardPage() {
             <p>Resumo do usuário conectado ao sistema de reservas.</p>
           </div>
 
-          <button className="secondary-button" onClick={logout}>
-            Logout
-          </button>
+          <div className="dashboard-actions">
+            <ThemeToggle />
+            <button className="secondary-button" onClick={logout}>
+              Logout
+            </button>
+          </div>
         </header>
 
         <div className="dashboard-card">
