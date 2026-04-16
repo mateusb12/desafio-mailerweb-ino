@@ -1,8 +1,15 @@
 import uuid
 from datetime import datetime
-from sqlalchemy import Boolean, DateTime, String
+from enum import Enum
+
+from sqlalchemy import Boolean, DateTime, Enum as SQLEnum, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from source.core.database import Base
+
+
+class UserRole(str, Enum):
+    ADMIN = "admin"
+    USER = "user"
 
 
 class User(Base):
@@ -13,6 +20,14 @@ class User(Base):
     name: Mapped[str] = mapped_column(String(120))
     email: Mapped[str] = mapped_column(String(255), unique=True)
     password_hash: Mapped[str] = mapped_column(String(255))
+    role: Mapped[UserRole] = mapped_column(
+        SQLEnum(
+            UserRole,
+            name="user_role",
+            values_callable=lambda enum_cls: [member.value for member in enum_cls],
+        ),
+        default=UserRole.USER,
+    )
 
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
 
