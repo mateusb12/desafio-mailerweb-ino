@@ -149,6 +149,7 @@ export default function DateInput({
   function commitTypedValue() {
     const parsed = parseDisplayDate(displayValue)
     setIsEditing(false)
+    setIsOpen(false) // Garante que feche ao perder o foco
 
     if (parsed) {
       onChange(parsed)
@@ -192,8 +193,8 @@ export default function DateInput({
           setIsEditing(true)
         }}
         onFocus={() => {
-  setIsOpen(true)
-}}
+          setIsOpen(true)
+        }}
         onKeyDown={event => {
           if (event.key === "ArrowDown") {
             event.preventDefault()
@@ -225,6 +226,7 @@ export default function DateInput({
             <button
               aria-label="Mes anterior"
               className="inline-flex size-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-lg font-extrabold text-slate-600 hover:border-blue-600 hover:text-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-600/15 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-300 dark:hover:border-blue-400 dark:hover:text-blue-300"
+              onMouseDown={e => e.preventDefault()} // Impede roubo de foco
               onClick={() => changeMonth(-1)}
               type="button"
             >
@@ -238,6 +240,7 @@ export default function DateInput({
             <button
               aria-label="Proximo mes"
               className="inline-flex size-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-lg font-extrabold text-slate-600 hover:border-blue-600 hover:text-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-600/15 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-300 dark:hover:border-blue-400 dark:hover:text-blue-300"
+              onMouseDown={e => e.preventDefault()} // Impede roubo de foco
               onClick={() => changeMonth(1)}
               type="button"
             >
@@ -271,6 +274,7 @@ export default function DateInput({
                         : "text-slate-700 hover:bg-blue-50 hover:text-blue-700 dark:text-slate-200 dark:hover:bg-slate-800 dark:hover:text-blue-300"
                   }`}
                   key={isoDate}
+                  onMouseDown={e => e.preventDefault()} // Impede roubo de foco
                   onClick={() => selectDate(day)}
                   type="button"
                 >

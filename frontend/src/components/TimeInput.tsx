@@ -17,13 +17,11 @@ function pad(value: number) {
   return String(value).padStart(2, "0")
 }
 
-// Atualizado para gerar opções apenas das 07:00 às 20:00
 function createTimeOptions() {
   const options: string[] = []
 
   for (let hour = 7; hour <= 20; hour++) {
     for (let minute = 0; minute < 60; minute += 15) {
-      // Impede de passar das 20:00 (não gera 20:15, 20:30, etc)
       if (hour === 20 && minute > 0) break
 
       options.push(`${pad(hour)}:${pad(minute)}`)
@@ -43,10 +41,7 @@ function normalizeTime(value: string) {
   const hour = Number(match[1])
   const minute = Number(match[2] || "0")
 
-  // Se a pessoa digitar algo fora do horário comercial, ignoramos
   if (hour < 7 || hour > 20) return ""
-
-  // Se a pessoa digitar algo como 20:15, travamos no limite máximo de 20:00
   if (hour === 20 && minute > 0) return "20:00"
 
   const roundedMinute = Math.min(45, Math.round(minute / 15) * 15)
@@ -110,6 +105,7 @@ export default function TimeInput({
   function commitTypedValue() {
     const normalized = normalizeTime(displayValue)
     setIsEditing(false)
+    setIsOpen(false) // Garante o fechamento ao perder o foco
 
     if (normalized && (!minTime || normalized >= minTime)) {
       onChange(normalized)
@@ -217,7 +213,7 @@ export default function TimeInput({
                   }`}
                   data-time={option}
                   key={option}
-                  onMouseDown={event => event.preventDefault()}
+                  onMouseDown={event => event.preventDefault()} // Impede roubo de foco
                   onClick={() => selectTime(option)}
                   role="option"
                   type="button"
