@@ -17,8 +17,9 @@ class EmailDelivery(Base):
     __tablename__ = "email_deliveries"
     __table_args__ = (
         Index(
-            "uq_email_deliveries_source_event_id",
+            "uq_email_deliveries_source_event_recipient_email",
             "source_event_id",
+            "recipient_email",
             unique=True,
             postgresql_where=text("source_event_id IS NOT NULL"),
         ),

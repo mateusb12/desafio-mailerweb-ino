@@ -201,7 +201,7 @@ Fluxo:
 3. a transação é confirmada (commit)
 4. um worker consulta periodicamente a tabela `outbox_events`
 5. eventos pendentes são processados
-6. uma entrega é registrada em `email_deliveries`
+6. entregas são registradas em `email_deliveries` para os participantes da reserva
 7. o evento é marcado como processado
 
 ## Worker
@@ -209,6 +209,19 @@ Fluxo:
 O worker é propositalmente simples e roda como processo separado da API.
 A API continua responsável por subir o FastAPI, aplicar migrations no startup e expor endpoints.
 O worker possui um entrypoint próprio em `source/features/outbox/run_worker.py`, aplica migrations no startup e executa o `worker_loop`.
+O runtime do worker fica responsável por buscar eventos pendentes, controlar retry/falha e despachar o processamento.
+A montagem de notificações de reserva fica separada em `source/features/bookings/notifications.py`.
+
+Para eventos `BOOKING_CREATED`, `BOOKING_UPDATED` e `BOOKING_CANCELED`, o handler de booking:
+
+- resolve os destinatários a partir dos participantes da reserva
+- normaliza os e-mails para minúsculas
+- remove destinatários duplicados
+- monta assunto e corpo da notificação
+- registra um `email_delivery` por participante
+
+O criador da reserva só recebe notificação se também estiver na lista de participantes.
+Essa escolha segue o foco do desafio: notificar os participantes da reserva.
 
 Em desenvolvimento, isso significa que basta subir o ambiente normalmente:
 
@@ -245,12 +258,13 @@ Essa estratégia mantém o comportamento previsível sem introduzir scheduler co
 ## Idempotência
 
 Cada entrega criada a partir do outbox guarda o `source_event_id`.
+Como um evento de reserva pode notificar vários participantes, um mesmo `source_event_id` pode aparecer em múltiplas linhas de `email_deliveries`.
 Para evitar duplicidade:
 
-- o serviço de email delivery verifica se já existe uma entrega para o mesmo `source_event_id` antes de criar outra
-- o banco possui um índice único parcial em `email_deliveries.source_event_id` quando o valor não é nulo
+- o serviço de email delivery verifica se já existe uma entrega para o mesmo par `source_event_id` + `recipient_email` antes de criar outra
+- o banco possui um índice único parcial em `email_deliveries(source_event_id, recipient_email)` quando `source_event_id` não é nulo
 
-Assim, se o worker tentar processar o mesmo evento novamente, o mesmo evento de outbox não deve gerar entregas duplicadas.
+Assim, se o worker tentar processar o mesmo evento novamente, o mesmo participante não recebe entregas duplicadas para aquele evento, mas outros participantes do mesmo evento continuam podendo ter suas próprias entregas.
 
 ## Por que não usar Celery ou serviços terceirizados?
 
