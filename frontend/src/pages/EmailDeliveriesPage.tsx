@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react"
 import { emailDeliveryService } from "../services/emailDeliveryService"
+import { toEmailDeliveryViewModel } from "../services/emailDeliveryPresenter"
 import type { EmailDelivery, EmailDeliveryStatus } from "../types/domain"
 
 const badgeClass =
@@ -10,35 +11,6 @@ const statusClasses: Record<EmailDeliveryStatus, string> = {
     "border-amber-500/30 bg-amber-50 text-amber-800 dark:border-amber-300/35 dark:bg-amber-950/35 dark:text-amber-200",
   delivered:
     "border-teal-600/25 bg-teal-50 text-teal-800 dark:border-teal-300/35 dark:bg-teal-950/35 dark:text-teal-200",
-}
-
-const statusLabel: Record<EmailDeliveryStatus, string> = {
-  processed: "Processado",
-  delivered: "Entregue",
-}
-
-const dateFormatter = new Intl.DateTimeFormat("pt-BR", {
-  day: "2-digit",
-  month: "short",
-  year: "numeric",
-  hour: "2-digit",
-  minute: "2-digit",
-})
-
-function formatDateTime(value: string) {
-  return dateFormatter.format(new Date(value)).replace(",", "")
-}
-
-function formatType(value: string) {
-  return value
-    .split("_")
-    .filter(Boolean)
-    .map(part => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(" ")
-}
-
-function previewBody(value: string) {
-  return value.length > 132 ? `${value.slice(0, 132)}...` : value
 }
 
 export default function EmailDeliveriesPage() {
@@ -74,9 +46,16 @@ export default function EmailDeliveriesPage() {
     }
   }, [])
 
+  const displayedEmails = useMemo(() => emails.map(toEmailDeliveryViewModel), [emails])
+
   const selectedEmail = useMemo(
-    () => emails.find(email => email.id === selectedId) ?? emails[0] ?? null,
-    [emails, selectedId],
+    () => displayedEmails.find(email => email.id === selectedId) ?? displayedEmails[0] ?? null,
+    [displayedEmails, selectedId],
+  )
+
+  const selectedRawEmail = useMemo(
+    () => emails.find(email => email.id === selectedEmail?.id) ?? null,
+    [emails, selectedEmail?.id],
   )
 
   return (
@@ -87,7 +66,7 @@ export default function EmailDeliveriesPage() {
           Inbox de entregas
         </h1>
         <p className="mb-0 mt-2.5 max-w-[46rem] leading-relaxed text-slate-500 dark:text-slate-300">
-          Registro persistente dos emails que o sistema processou para envio.
+          Mensagens registradas pelo sistema, com leitura simplificada para acompanhar as notificacoes enviadas.
         </p>
       </header>
 
@@ -128,7 +107,7 @@ export default function EmailDeliveriesPage() {
             </div>
 
             <div className="max-h-[620px] overflow-y-auto">
-              {emails.map(email => {
+              {displayedEmails.map(email => {
                 const active = selectedEmail?.id === email.id
 
                 return (
@@ -144,26 +123,26 @@ export default function EmailDeliveriesPage() {
                   >
                     <div className="flex min-w-0 items-start justify-between gap-3">
                       <p className="m-0 min-w-0 truncate text-sm font-extrabold">
-                        {email.subject}
+                        {email.title}
                       </p>
                       <time className="flex-none text-xs font-bold text-slate-400 dark:text-slate-500">
-                        {formatDateTime(email.createdAt)}
+                        {email.formattedCreatedAt}
                       </time>
                     </div>
                     <p className="m-0 truncate text-xs font-bold text-slate-500 dark:text-slate-400">
-                      Para {email.recipientEmail}
+                      {email.subtitle}
                     </p>
                     <p className="m-0 line-clamp-2 text-sm leading-relaxed text-slate-500 dark:text-slate-300">
-                      {previewBody(email.body)}
+                      {email.summary}
                     </p>
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="inline-flex min-h-7 items-center rounded-full border border-slate-200 bg-white px-2.5 text-xs font-bold text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300">
-                        {formatType(email.emailType)}
+                        {email.typeLabel}
                       </span>
                       <span
                         className={`inline-flex min-h-7 items-center rounded-full border px-2.5 text-xs font-extrabold ${statusClasses[email.status]}`}
                       >
-                        {statusLabel[email.status]}
+                        {email.statusLabel}
                       </span>
                     </div>
                   </button>
@@ -178,20 +157,20 @@ export default function EmailDeliveriesPage() {
                 <div className="min-w-0">
                   <div className="mb-3 flex flex-wrap items-center gap-2">
                     <span className="inline-flex min-h-7 items-center rounded-full border border-slate-200 bg-slate-50 px-2.5 text-xs font-bold text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300">
-                      {formatType(selectedEmail.emailType)}
+                      {selectedEmail.typeLabel}
                     </span>
                     <span
                       className={`inline-flex min-h-7 items-center rounded-full border px-2.5 text-xs font-extrabold ${statusClasses[selectedEmail.status]}`}
                     >
-                      {statusLabel[selectedEmail.status]}
+                      {selectedEmail.statusLabel}
                     </span>
                   </div>
                   <h2 className="m-0 text-[clamp(1.45rem,3vw,2.25rem)] leading-tight tracking-normal text-[#172033] dark:text-slate-50">
-                    {selectedEmail.subject}
+                    {selectedEmail.title}
                   </h2>
                 </div>
                 <time className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-bold text-slate-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300">
-                  {formatDateTime(selectedEmail.createdAt)}
+                  {selectedEmail.formattedCreatedAt}
                 </time>
               </div>
 
@@ -209,16 +188,42 @@ export default function EmailDeliveriesPage() {
                     Origem
                   </dt>
                   <dd className="m-0 font-bold [overflow-wrap:anywhere] text-[#172033] dark:text-slate-50">
-                    {selectedEmail.sourceEventId ? "Outbox event" : "Seed de desenvolvimento"}
+                    {selectedEmail.sourceLabel}
                   </dd>
                 </div>
               </dl>
 
-              <div className="mt-5 rounded-xl border border-slate-200 bg-slate-50 p-5 dark:border-slate-700 dark:bg-slate-900">
-                <p className="m-0 whitespace-pre-wrap text-[1rem] leading-8 text-slate-700 dark:text-slate-200">
-                  {selectedEmail.body}
+              {selectedEmail.hasStructuredDetails && (
+                <section className="mt-5 rounded-xl border border-slate-200 bg-slate-50 p-5 dark:border-slate-700 dark:bg-slate-900">
+                  <h3 className="m-0 text-sm font-extrabold text-[#172033] dark:text-slate-50">
+                    Dados da notificacao
+                  </h3>
+                  <dl className="mt-4 grid grid-cols-2 gap-3 max-[720px]:grid-cols-1">
+                    {selectedEmail.detailFields.map(field => (
+                      <div
+                        className="min-w-0 rounded-lg border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-[#172033]"
+                        key={field.label}
+                      >
+                        <dt className="mb-1 text-xs font-extrabold uppercase tracking-[0.04em] text-slate-500 dark:text-slate-400">
+                          {field.label}
+                        </dt>
+                        <dd className="m-0 text-sm font-bold leading-relaxed [overflow-wrap:anywhere] text-[#172033] dark:text-slate-50">
+                          {field.value}
+                        </dd>
+                      </div>
+                    ))}
+                  </dl>
+                </section>
+              )}
+
+              <details className="mt-5 rounded-xl border border-slate-200 bg-slate-50 p-5 dark:border-slate-700 dark:bg-slate-900">
+                <summary className="cursor-pointer text-sm font-extrabold text-[#172033] dark:text-slate-50">
+                  Ver conteudo original
+                </summary>
+                <p className="m-0 mt-4 whitespace-pre-wrap text-[1rem] leading-8 text-slate-700 dark:text-slate-200">
+                  {selectedRawEmail?.body ?? selectedEmail.body}
                 </p>
-              </div>
+              </details>
             </article>
           )}
         </div>
