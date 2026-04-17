@@ -34,6 +34,41 @@ def test_valid_login_returns_token(client, users):
     assert response.json()["access_token"]
 
 
+def test_register_creates_active_user_and_returns_token(client, db_session):
+    response = client.post(
+        "/auth/register",
+        json={
+            "email": "novo-usuario@example.com",
+            "password": "UserPass123!",
+            "confirm_password": "UserPass123!",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["token_type"] == "bearer"
+    assert response.json()["access_token"]
+
+    user = db_session.query(User).filter(User.email == "novo-usuario@example.com").first()
+    assert user is not None
+    assert user.role == UserRole.USER
+    assert user.is_active is True
+    assert user.password_hash != "UserPass123!"
+
+
+def test_register_rejects_duplicate_email(client, users):
+    response = client.post(
+        "/auth/register",
+        json={
+            "email": users["user"].email,
+            "password": "UserPass123!",
+            "confirm_password": "UserPass123!",
+        },
+    )
+
+    assert response.status_code == 400
+    assert response.json() == {"detail": "Email já cadastrado"}
+
+
 def test_invalid_password_is_rejected(client, users):
     response = login(client, users["user"].email, "WrongPass123!")
 

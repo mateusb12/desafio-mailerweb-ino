@@ -7,7 +7,14 @@ import pytest
 from sqlalchemy.exc import IntegrityError
 
 from source.core.database import SessionLocal, engine
+from source.features.outbox.constants import (
+    AGGREGATE_TYPE_BOOKING,
+    BOOKING_CANCELED,
+    BOOKING_CREATED,
+    BOOKING_UPDATED,
+)
 from source.models.booking import Booking
+from source.models.outbox_event import OutboxEvent, OutboxStatus
 from source.models.room import Room
 from source.models.user import User
 
@@ -48,6 +55,18 @@ def create_booking(client, headers, room_id, **overrides):
     response = client.post("/bookings", json=booking_payload(room_id, **overrides), headers=headers)
     assert response.status_code == 201
     return response
+
+
+def booking_outbox_events(db_session, booking_id):
+    return (
+        db_session.query(OutboxEvent)
+        .filter(
+            OutboxEvent.aggregate_type == AGGREGATE_TYPE_BOOKING,
+            OutboxEvent.aggregate_id == str(booking_id),
+        )
+        .order_by(OutboxEvent.created_at, OutboxEvent.id)
+        .all()
+    )
 
 
 def test_booking_routes_require_authentication(client, room_factory):
@@ -95,6 +114,21 @@ def test_create_booking_returns_active_booking_with_participants(client, users, 
         "status": "active",
         "participants": ["ana@example.com", "bruno@example.com"],
     }
+
+
+def test_create_booking_creates_outbox_event(client, users, room_factory, db_session):
+    room = room_factory()
+    headers = auth_header(client, users["user"])
+
+    response = create_booking(client, headers, room.id)
+    booking_id = response.json()["id"]
+
+    events = booking_outbox_events(db_session, booking_id)
+    assert len(events) == 1
+    assert events[0].event_type == BOOKING_CREATED
+    assert events[0].status == OutboxStatus.PENDING
+    assert events[0].payload["booking_id"] == booking_id
+    assert events[0].payload["title"] == "Planejamento"
 
 
 def test_create_booking_rejects_start_at_after_end_at(client, users, room_factory):
@@ -291,6 +325,33 @@ def test_update_booking_changes_window_title_room_and_participants(client, users
     assert response.json()["participants"] == ["carla@example.com"]
 
 
+def test_update_booking_creates_outbox_event(client, users, room_factory, db_session):
+    original_room = room_factory()
+    new_room = room_factory()
+    headers = auth_header(client, users["user"])
+    booking = create_booking(client, headers, original_room.id).json()
+
+    response = client.put(
+        f"/bookings/{booking['id']}",
+        json=booking_payload(
+            new_room.id,
+            title="Revisão técnica",
+            start_at=BASE_START + timedelta(hours=2),
+            end_at=BASE_START + timedelta(hours=3),
+            participants=["carla@example.com"],
+        ),
+        headers=headers,
+    )
+
+    assert response.status_code == 200
+    events = booking_outbox_events(db_session, booking["id"])
+    assert [event.event_type for event in events] == [BOOKING_CREATED, BOOKING_UPDATED]
+    assert events[-1].status == OutboxStatus.PENDING
+    assert events[-1].payload["booking_id"] == booking["id"]
+    assert events[-1].payload["title"] == "Revisão técnica"
+    assert events[-1].payload["room_id"] == str(new_room.id)
+
+
 def test_update_booking_rejects_overlap_with_another_active_booking(client, users, room_factory):
     room = room_factory()
     headers = auth_header(client, users["user"])
@@ -346,6 +407,21 @@ def test_cancel_booking_marks_as_canceled_and_keeps_record(client, users, room_f
     persisted_booking = db_session.get(Booking, booking["id"])
     assert persisted_booking is not None
     assert persisted_booking.canceled_at is not None
+
+
+def test_cancel_booking_creates_outbox_event(client, users, room_factory, db_session):
+    room = room_factory()
+    headers = auth_header(client, users["user"])
+    booking = create_booking(client, headers, room.id).json()
+
+    response = client.post(f"/bookings/{booking['id']}/cancel", headers=headers)
+
+    assert response.status_code == 200
+    events = booking_outbox_events(db_session, booking["id"])
+    assert [event.event_type for event in events] == [BOOKING_CREATED, BOOKING_CANCELED]
+    assert events[-1].status == OutboxStatus.PENDING
+    assert events[-1].payload["booking_id"] == booking["id"]
+    assert events[-1].payload["status"] == "canceled"
 
 
 def test_canceled_booking_does_not_block_same_room_same_time(client, users, room_factory):
