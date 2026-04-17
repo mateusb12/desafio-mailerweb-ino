@@ -7,6 +7,7 @@ type TimeInputProps = {
   onChange: (value: string) => void
   required?: boolean
   disabled?: boolean
+  minTime?: string // Nova propriedade
 }
 
 const fieldClass =
@@ -49,20 +50,30 @@ export default function TimeInput({
   onChange,
   required = false,
   disabled = false,
+  minTime,
 }: TimeInputProps) {
   const wrapperRef = useRef<HTMLDivElement | null>(null)
   const listRef = useRef<HTMLDivElement | null>(null)
   const [draftValue, setDraftValue] = useState("")
   const [isEditing, setIsEditing] = useState(false)
   const [isOpen, setIsOpen] = useState(false)
+
   const options = TIME_OPTIONS
   const displayValue = isEditing ? draftValue : value
-  const filteredOptions = useMemo(() => {
-    const typed = isEditing ? draftValue.trim() : ""
-    if (!typed) return options
 
-    return options.filter(option => option.startsWith(typed))
-  }, [draftValue, isEditing, options])
+  const filteredOptions = useMemo(() => {
+    // 1. Filtra as opções pelo minTime, se ele existir
+    let availableOptions = options
+    if (minTime) {
+      availableOptions = availableOptions.filter(option => option >= minTime)
+    }
+
+    // 2. Filtra pelo que o usuário está digitando
+    const typed = isEditing ? draftValue.trim() : ""
+    if (!typed) return availableOptions
+
+    return availableOptions.filter(option => option.startsWith(typed))
+  }, [draftValue, isEditing, options, minTime])
 
   useEffect(() => {
     if (!isOpen) return
@@ -91,7 +102,8 @@ export default function TimeInput({
     const normalized = normalizeTime(displayValue)
     setIsEditing(false)
 
-    if (normalized) {
+    // Impede de salvar um valor menor que o minTime se digitado manualmente
+    if (normalized && (!minTime || normalized >= minTime)) {
       onChange(normalized)
       setDraftValue(normalized)
       return
@@ -113,16 +125,18 @@ export default function TimeInput({
   }
 
   function moveSelection(delta: number) {
-    const currentIndex = options.indexOf(value)
+    const currentIndex = filteredOptions.indexOf(value)
     const nextIndex =
       currentIndex >= 0
-        ? Math.min(options.length - 1, Math.max(0, currentIndex + delta))
+        ? Math.min(filteredOptions.length - 1, Math.max(0, currentIndex + delta))
         : delta > 0
           ? 0
-          : options.length - 1
+          : filteredOptions.length - 1
 
-    selectTime(options[nextIndex])
-    setIsOpen(true)
+    if (filteredOptions[nextIndex]) {
+      selectTime(filteredOptions[nextIndex])
+      setIsOpen(true)
+    }
   }
 
   return (

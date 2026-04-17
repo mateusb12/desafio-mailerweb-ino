@@ -384,7 +384,6 @@ export default function BookingsPage() {
                     updateForm({
                       ...form,
                       date: value,
-                      // Se a pessoa limpar a data, forçamos a limpeza dos horários atrelados
                       startTime: value ? form.startTime : "",
                       endTime: value ? form.endTime : "",
                     })
@@ -400,13 +399,20 @@ export default function BookingsPage() {
                   id="booking-start-time"
                   value={form.startTime}
                   disabled={!form.date}
-                  onChange={value =>
+                  onChange={value => {
+                    const normalizedValue = normalizeQuarterHour(value)
+                    // Se o novo início for maior que o fim atual, limpa o fim
+                    const nextEndTime =
+                      form.endTime && normalizedValue > form.endTime
+                        ? ""
+                        : form.endTime
+
                     updateForm({
                       ...form,
-                      startTime: normalizeQuarterHour(value),
-                      endTime: value ? form.endTime : "",
+                      startTime: normalizedValue,
+                      endTime: !value ? "" : nextEndTime,
                     })
-                  }
+                  }}
                   required
                 />
               </div>
@@ -418,6 +424,7 @@ export default function BookingsPage() {
                   id="booking-end-time"
                   value={form.endTime}
                   disabled={!form.startTime}
+                  minTime={form.startTime}
                   onChange={value =>
                     updateForm({
                       ...form,
