@@ -14,10 +14,12 @@ type DashboardBookingSummaryResponse = {
 
 type DashboardMetricsResponse = {
   rooms_count: number
+  bookings_count: number
   active_bookings_count: number
   today_active_bookings_count: number
   my_upcoming_bookings_count: number
   email_deliveries_count: number
+  outbox_events_count: number
   processed_email_deliveries_count: number
   pending_outbox_events_count: number
   failed_outbox_events_count: number
@@ -41,10 +43,12 @@ function toBookingSummary(
 function toDashboardMetrics(response: DashboardMetricsResponse): DashboardMetrics {
   return {
     roomsCount: response.rooms_count,
+    bookingsCount: response.bookings_count,
     activeBookingsCount: response.active_bookings_count,
     todayActiveBookingsCount: response.today_active_bookings_count,
     myUpcomingBookingsCount: response.my_upcoming_bookings_count,
     emailDeliveriesCount: response.email_deliveries_count,
+    outboxEventsCount: response.outbox_events_count,
     processedEmailDeliveriesCount: response.processed_email_deliveries_count,
     pendingOutboxEventsCount: response.pending_outbox_events_count,
     failedOutboxEventsCount: response.failed_outbox_events_count,
@@ -74,6 +78,24 @@ export async function getDashboardMetrics(): Promise<DashboardMetrics> {
   }
 }
 
+export async function populateMockData(): Promise<void> {
+  try {
+    await apiFetch<unknown>("/dev/populate-mock-data", { method: "POST" })
+  } catch (error) {
+    throw toServiceError(error)
+  }
+}
+
+export async function clearMockData(): Promise<void> {
+  try {
+    await apiFetch<unknown>("/dev/clear-mock-data", { method: "POST" })
+  } catch (error) {
+    throw toServiceError(error)
+  }
+}
+
 export const dashboardService = {
+  clearMockData,
   getDashboardMetrics,
+  populateMockData,
 }

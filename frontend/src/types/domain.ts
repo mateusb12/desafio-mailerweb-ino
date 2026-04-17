@@ -76,10 +76,12 @@ export type DashboardBookingSummary = {
 
 export type DashboardMetrics = {
   roomsCount: number
+  bookingsCount: number
   activeBookingsCount: number
   todayActiveBookingsCount: number
   myUpcomingBookingsCount: number
   emailDeliveriesCount: number
+  outboxEventsCount: number
   processedEmailDeliveriesCount: number
   pendingOutboxEventsCount: number
   failedOutboxEventsCount: number

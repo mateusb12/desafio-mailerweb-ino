@@ -10,6 +10,7 @@ from source.features.email_deliveries.service import register_email_delivery
 from source.models.booking import Booking, BookingStatus
 from source.models.booking_participant import BookingParticipant
 from source.models.email_delivery import EmailDelivery, EmailDeliveryStatus
+from source.models.outbox_event import OutboxEvent
 from source.models.room import Room
 from source.models.user import User, UserRole
 
@@ -92,6 +93,24 @@ def _reset_seed_data(db: Session) -> dict:
         "bookings": deleted_bookings,
         "rooms": deleted_rooms,
         "users": 0,
+    }
+
+
+def clear_mock_data(db: Session) -> dict:
+    deleted_email_deliveries = db.query(EmailDelivery).delete(synchronize_session=False)
+    deleted_booking_participants = db.query(BookingParticipant).delete(synchronize_session=False)
+    deleted_bookings = db.query(Booking).delete(synchronize_session=False)
+    deleted_outbox_events = db.query(OutboxEvent).delete(synchronize_session=False)
+    deleted_rooms = db.query(Room).delete(synchronize_session=False)
+
+    db.commit()
+
+    return {
+        "email_deliveries": deleted_email_deliveries,
+        "booking_participants": deleted_booking_participants,
+        "bookings": deleted_bookings,
+        "outbox_events": deleted_outbox_events,
+        "rooms": deleted_rooms,
     }
 
 

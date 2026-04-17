@@ -1,7 +1,8 @@
-from source.features.dev.mock_seed_service import populate_mock_data
+from source.features.dev.mock_seed_service import clear_mock_data, populate_mock_data
 from source.models.booking import Booking
 from source.models.booking_participant import BookingParticipant
 from source.models.email_delivery import EmailDelivery
+from source.models.outbox_event import OutboxEvent
 from source.models.room import Room
 from source.models.user import User
 
@@ -93,3 +94,25 @@ def test_populate_mock_data_chooses_first_existing_user_by_email_when_multiple_e
     assert summary["target_user_strategy"] == "first_existing_user_by_email"
     assert delivery.recipient_user_id == expected_target.id
     assert delivery.recipient_email == expected_target.email
+
+
+def test_clear_mock_data_removes_operational_demo_data_but_keeps_users(db_session, user_factory):
+    _clear_seed_test_state(db_session)
+    user = user_factory(email="demo-reset@example.com")
+    populate_mock_data(db_session)
+
+    assert db_session.query(Room).count() > 0
+    assert db_session.query(Booking).count() > 0
+    assert db_session.query(EmailDelivery).count() > 0
+
+    summary = clear_mock_data(db_session)
+
+    assert summary["rooms"] > 0
+    assert summary["bookings"] > 0
+    assert summary["email_deliveries"] > 0
+    assert db_session.query(Room).count() == 0
+    assert db_session.query(Booking).count() == 0
+    assert db_session.query(BookingParticipant).count() == 0
+    assert db_session.query(EmailDelivery).count() == 0
+    assert db_session.query(OutboxEvent).count() == 0
+    assert db_session.get(User, user.id) is not None

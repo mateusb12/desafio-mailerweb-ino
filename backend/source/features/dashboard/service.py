@@ -47,6 +47,7 @@ def get_dashboard_metrics(db: Session, current_user: User) -> DashboardMetricsRe
     tomorrow_start = today_start + timedelta(days=1)
 
     rooms_count = count_query(db.query(func.count(Room.id)))
+    bookings_count = count_query(db.query(func.count(Booking.id)))
     active_bookings_count = count_query(
         db.query(func.count(Booking.id)).filter(Booking.status == BookingStatus.ACTIVE),
     )
@@ -65,6 +66,7 @@ def get_dashboard_metrics(db: Session, current_user: User) -> DashboardMetricsRe
         ),
     )
     email_deliveries_count = count_query(db.query(func.count(EmailDelivery.id)))
+    outbox_events_count = count_query(db.query(func.count(OutboxEvent.id)))
     processed_email_deliveries_count = count_query(
         db.query(func.count(EmailDelivery.id)).filter(
             EmailDelivery.status == EmailDeliveryStatus.PROCESSED,
@@ -94,10 +96,12 @@ def get_dashboard_metrics(db: Session, current_user: User) -> DashboardMetricsRe
 
     return DashboardMetricsResponse(
         rooms_count=rooms_count,
+        bookings_count=bookings_count,
         active_bookings_count=active_bookings_count,
         today_active_bookings_count=today_active_bookings_count,
         my_upcoming_bookings_count=my_upcoming_bookings_count,
         email_deliveries_count=email_deliveries_count,
+        outbox_events_count=outbox_events_count,
         processed_email_deliveries_count=processed_email_deliveries_count,
         pending_outbox_events_count=pending_outbox_events_count,
         failed_outbox_events_count=failed_outbox_events_count,

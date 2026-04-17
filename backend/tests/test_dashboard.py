@@ -74,10 +74,12 @@ def test_dashboard_metrics_returns_system_summary(client, users, auth_headers, r
     data = response.json()
     assert data == {
         "rooms_count": baseline["rooms_count"] + 1,
+        "bookings_count": baseline["bookings_count"] + 1,
         "active_bookings_count": baseline["active_bookings_count"] + 1,
         "today_active_bookings_count": baseline["today_active_bookings_count"] + 1,
         "my_upcoming_bookings_count": baseline["my_upcoming_bookings_count"] + 1,
         "email_deliveries_count": baseline["email_deliveries_count"] + 2,
+        "outbox_events_count": baseline["outbox_events_count"] + 2,
         "processed_email_deliveries_count": baseline["processed_email_deliveries_count"] + 1,
         "pending_outbox_events_count": baseline["pending_outbox_events_count"] + 1,
         "failed_outbox_events_count": baseline["failed_outbox_events_count"] + 1,
