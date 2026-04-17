@@ -4,6 +4,8 @@ import uuid
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session, joinedload, selectinload
 
+from source.features.outbox.constants import BOOKING_CREATED, AGGREGATE_TYPE_BOOKING, BOOKING_UPDATED, BOOKING_CANCELED
+from source.features.outbox.service import create_outbox_event
 from source.core.security import hash_password
 from source.features.bookings.schemas import BookingRequest, BookingResponse, BookingUserResponse
 from source.models.booking import Booking, BookingStatus
@@ -164,6 +166,21 @@ def _replace_participants(db: Session, booking: Booking, emails: list[str]) -> N
         user = _get_or_create_user_by_email(db, email)
         db.add(BookingParticipant(booking_id=booking.id, user_id=user.id))
 
+def _build_booking_outbox_payload(
+    booking: Booking,
+    participants: list[str],
+) -> dict:
+    return {
+        "booking_id": str(booking.id),
+        "title": booking.title,
+        "room_id": str(booking.room_id),
+        "created_by_user_id": str(booking.created_by_user_id),
+        "start_at": booking.start_at.isoformat(),
+        "end_at": booking.end_at.isoformat(),
+        "status": booking.status.value,
+        "participants": participants,
+    }
+
 
 def _booking_response(booking: Booking) -> BookingResponse:
     participants = sorted(participant.user.email for participant in booking.participants)
@@ -220,6 +237,15 @@ def create_booking(db: Session, payload: BookingRequest, current_user: User) -> 
     db.flush()
 
     _replace_participants(db, booking, participants)
+    db.flush()
+
+    create_outbox_event(
+        db,
+        aggregate_type=AGGREGATE_TYPE_BOOKING,
+        aggregate_id=booking.id,
+        event_type=BOOKING_CREATED,
+        payload=_build_booking_outbox_payload(booking, participants),
+    )
 
     db.commit()
 
@@ -249,6 +275,15 @@ def update_booking(db: Session, booking_id: uuid.UUID, payload: BookingRequest, 
     booking.start_at = start_at
     booking.end_at = end_at
     _replace_participants(db, booking, participants)
+    db.flush()
+
+    create_outbox_event(
+        db,
+        aggregate_type=AGGREGATE_TYPE_BOOKING,
+        aggregate_id=booking.id,
+        event_type=BOOKING_UPDATED,
+        payload=_build_booking_outbox_payload(booking, participants),
+    )
 
     db.commit()
 
@@ -262,6 +297,18 @@ def cancel_booking(db: Session, booking_id: uuid.UUID, current_user: User) -> Bo
     if booking.status != BookingStatus.CANCELED:
         booking.status = BookingStatus.CANCELED
         booking.canceled_at = datetime.now(UTC)
+        db.flush()
+
+        participants = sorted(participant.user.email for participant in booking.participants)
+
+        create_outbox_event(
+            db,
+            aggregate_type=AGGREGATE_TYPE_BOOKING,
+            aggregate_id=booking.id,
+            event_type=BOOKING_CANCELED,
+            payload=_build_booking_outbox_payload(booking, participants),
+        )
+
         db.commit()
 
     return _booking_response(_get_booking(db, booking.id))
