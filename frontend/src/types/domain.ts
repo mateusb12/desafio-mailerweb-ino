@@ -16,6 +16,11 @@ export type Room = {
   capacity: number
 }
 
+export type RoomInput = {
+  name: string
+  capacity: number
+}
+
 export type Booking = {
   id: string
   title: string
