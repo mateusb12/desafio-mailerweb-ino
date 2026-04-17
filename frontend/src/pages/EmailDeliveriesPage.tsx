@@ -33,7 +33,7 @@ export default function EmailDeliveriesPage() {
         setEmails(data)
         setSelectedId(current => current ?? data[0]?.id ?? null)
       } catch {
-        if (mounted) setError("Nao foi possivel carregar os emails processados.")
+        if (mounted) setError("Não foi possível carregar os emails processados.")
       } finally {
         if (mounted) setLoading(false)
       }
@@ -66,7 +66,7 @@ export default function EmailDeliveriesPage() {
           Inbox de entregas
         </h1>
         <p className="mb-0 mt-2.5 max-w-[46rem] leading-relaxed text-slate-500 dark:text-slate-300">
-          Mensagens registradas pelo sistema, com leitura simplificada para acompanhar as notificacoes enviadas.
+          Mensagens registradas pelo sistema, com leitura simplificada para acompanhar as notificações enviadas.
         </p>
       </header>
 
@@ -177,7 +177,7 @@ export default function EmailDeliveriesPage() {
               <dl className="mt-5 grid grid-cols-2 gap-3 max-[720px]:grid-cols-1">
                 <div className="min-w-0 rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-900">
                   <dt className="mb-1.5 text-xs font-extrabold uppercase tracking-[0.04em] text-slate-500 dark:text-slate-400">
-                    Destinatario
+                    Destinatário
                   </dt>
                   <dd className="m-0 font-bold [overflow-wrap:anywhere] text-[#172033] dark:text-slate-50">
                     {selectedEmail.recipientEmail}
@@ -196,7 +196,7 @@ export default function EmailDeliveriesPage() {
               {selectedEmail.hasStructuredDetails && (
                 <section className="mt-5 rounded-xl border border-slate-200 bg-slate-50 p-5 dark:border-slate-700 dark:bg-slate-900">
                   <h3 className="m-0 text-sm font-extrabold text-[#172033] dark:text-slate-50">
-                    Dados da notificacao
+                    Dados da notificação
                   </h3>
                   <dl className="mt-4 grid grid-cols-2 gap-3 max-[720px]:grid-cols-1">
                     {selectedEmail.detailFields.map(field => (
@@ -218,7 +218,7 @@ export default function EmailDeliveriesPage() {
 
               <details className="mt-5 rounded-xl border border-slate-200 bg-slate-50 p-5 dark:border-slate-700 dark:bg-slate-900">
                 <summary className="cursor-pointer text-sm font-extrabold text-[#172033] dark:text-slate-50">
-                  Ver conteudo original
+                  Ver conteúdo original
                 </summary>
                 <p className="m-0 mt-4 whitespace-pre-wrap text-[1rem] leading-8 text-slate-700 dark:text-slate-200">
                   {selectedRawEmail?.body ?? selectedEmail.body}
