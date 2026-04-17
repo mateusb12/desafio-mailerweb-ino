@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from "react"
-import BookingsCalendarView from "../components/BookingsCalendarView"
 import DateInput from "../components/DateInput"
 import TimeInput from "../components/TimeInput"
 import { bookingService } from "../services/bookingService"
@@ -7,6 +6,7 @@ import { useAuth } from "../hooks/authContext"
 import { roomService } from "../services/roomService"
 import { ServiceError } from "../services/serviceError"
 import type { Booking, BookingFormInput, BookingInput, Room } from "../types/domain"
+import BookingsCalendarView from "../components/BookingsCalendarView.tsx";
 
 const badgeClass =
   "inline-flex min-h-[30px] items-center rounded-full border border-blue-600/20 bg-white/75 px-3 py-1.5 text-xs font-bold uppercase tracking-[0.04em] text-blue-700 dark:border-blue-300/30 dark:bg-[#172033]/70 dark:text-blue-300"
