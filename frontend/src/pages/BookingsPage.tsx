@@ -231,7 +231,6 @@ export default function BookingsPage() {
     setForm(nextForm)
 
     if (nextForm.date) setCalendarDate(nextForm.date)
-    if (nextForm.roomId) setCalendarRoomId(nextForm.roomId)
   }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
