@@ -12,7 +12,7 @@ const badgeClass =
   "inline-flex min-h-[30px] items-center rounded-full border border-blue-600/20 bg-white/75 px-3 py-1.5 text-xs font-bold uppercase tracking-[0.04em] text-blue-700 dark:border-blue-300/30 dark:bg-[#172033]/70 dark:text-blue-300"
 
 const fieldClass =
-  "h-[44px] w-full min-w-0 rounded-lg border border-slate-200 bg-white px-3 text-slate-900 outline-none focus:border-blue-600 focus:shadow-[0_0_0_4px_rgba(37,99,235,0.14)] dark:border-slate-700 dark:bg-slate-900 dark:text-slate-50"
+  "h-[44px] w-full min-w-0 rounded-lg border border-slate-200 bg-white px-3 text-slate-900 outline-none focus:border-blue-600 focus:shadow-[0_0_0_4px_rgba(37,99,235,0.14)] dark:border-slate-700 dark:bg-slate-900 dark:text-slate-50 disabled:opacity-60 disabled:cursor-not-allowed"
 
 const labelClass =
   "grid min-w-0 gap-2 text-sm font-bold text-[#172033] dark:text-slate-50"
@@ -384,6 +384,9 @@ export default function BookingsPage() {
                     updateForm({
                       ...form,
                       date: value,
+                      // Se a pessoa limpar a data, forçamos a limpeza dos horários atrelados
+                      startTime: value ? form.startTime : "",
+                      endTime: value ? form.endTime : "",
                     })
                   }
                   required
@@ -396,10 +399,12 @@ export default function BookingsPage() {
                   ariaLabel="Horario de inicio"
                   id="booking-start-time"
                   value={form.startTime}
+                  disabled={!form.date}
                   onChange={value =>
                     updateForm({
                       ...form,
                       startTime: normalizeQuarterHour(value),
+                      endTime: value ? form.endTime : "",
                     })
                   }
                   required
@@ -412,6 +417,7 @@ export default function BookingsPage() {
                   ariaLabel="Horario de fim"
                   id="booking-end-time"
                   value={form.endTime}
+                  disabled={!form.startTime}
                   onChange={value =>
                     updateForm({
                       ...form,

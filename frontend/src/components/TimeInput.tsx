@@ -6,10 +6,11 @@ type TimeInputProps = {
   value: string
   onChange: (value: string) => void
   required?: boolean
+  disabled?: boolean
 }
 
 const fieldClass =
-  "h-[44px] w-full min-w-0 rounded-lg border border-slate-200 bg-white px-3 pr-11 text-slate-900 outline-none focus:border-blue-600 focus:shadow-[0_0_0_4px_rgba(37,99,235,0.14)] dark:border-slate-700 dark:bg-slate-900 dark:text-slate-50"
+  "h-[44px] w-full min-w-0 rounded-lg border border-slate-200 bg-white px-3 pr-11 text-slate-900 outline-none focus:border-blue-600 focus:shadow-[0_0_0_4px_rgba(37,99,235,0.14)] dark:border-slate-700 dark:bg-slate-900 dark:text-slate-50 disabled:opacity-60 disabled:cursor-not-allowed"
 
 function pad(value: number) {
   return String(value).padStart(2, "0")
@@ -47,6 +48,7 @@ export default function TimeInput({
   value,
   onChange,
   required = false,
+  disabled = false,
 }: TimeInputProps) {
   const wrapperRef = useRef<HTMLDivElement | null>(null)
   const listRef = useRef<HTMLDivElement | null>(null)
@@ -130,6 +132,7 @@ export default function TimeInput({
         className={fieldClass}
         id={id}
         inputMode="numeric"
+        disabled={disabled}
         onBlur={commitTypedValue}
         onChange={event => {
           setDraftValue(event.target.value)
@@ -137,9 +140,11 @@ export default function TimeInput({
           setIsOpen(true)
         }}
         onFocus={() => {
-          setIsOpen(true)
+          if (!disabled) setIsOpen(true)
         }}
         onKeyDown={event => {
+          if (disabled) return
+
           if (event.key === "ArrowDown") {
             event.preventDefault()
             moveSelection(1)
@@ -159,7 +164,8 @@ export default function TimeInput({
 
       <button
         aria-label={`Abrir opcoes de ${ariaLabel.toLowerCase()}`}
-        className="absolute right-2 top-1/2 inline-flex size-8 -translate-y-1/2 items-center justify-center rounded-md text-slate-500 hover:bg-slate-100 hover:text-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-600/15 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-blue-300"
+        className="absolute right-2 top-1/2 inline-flex size-8 -translate-y-1/2 items-center justify-center rounded-md text-slate-500 hover:bg-slate-100 hover:text-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-600/15 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent disabled:hover:text-slate-500 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-blue-300 dark:disabled:hover:bg-transparent dark:disabled:hover:text-slate-300"
+        disabled={disabled}
         onClick={() => setIsOpen(current => !current)}
         type="button"
       >
@@ -169,7 +175,7 @@ export default function TimeInput({
         />
       </button>
 
-      {isOpen && (
+      {isOpen && !disabled && (
         <div
           className="absolute left-0 z-30 mt-2 max-h-60 w-full min-w-[9rem] overflow-y-auto rounded-xl border border-slate-200 bg-white p-1.5 shadow-[0_18px_40px_rgba(15,23,42,0.18)] dark:border-slate-700 dark:bg-slate-900"
           ref={listRef}
