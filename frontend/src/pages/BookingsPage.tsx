@@ -470,15 +470,6 @@ export default function BookingsPage() {
 
       <div className="min-w-0">
         <div className="mb-4 flex items-center justify-between gap-4 max-[720px]:flex-col max-[720px]:items-stretch">
-          <div className="min-w-0">
-            <h2 className="m-0 text-xl tracking-normal text-[#172033] dark:text-slate-50">
-              Reservas existentes
-            </h2>
-            <span className="mt-1 block text-sm font-bold text-slate-500 dark:text-slate-300">
-              {bookings.length} registros
-            </span>
-          </div>
-
           <div
             className="grid grid-cols-2 rounded-xl border border-slate-200 bg-white p-1 shadow-[0_10px_22px_rgba(23,32,51,0.07)] dark:border-slate-700 dark:bg-slate-900"
             role="tablist"
@@ -507,6 +498,15 @@ export default function BookingsPage() {
                 </button>
               )
             })}
+          </div>
+
+          <div className="min-w-0 text-right max-[720px]:text-left">
+            <h2 className="m-0 text-xl tracking-normal text-[#172033] dark:text-slate-50">
+              Reservas existentes
+            </h2>
+            <span className="mt-1 block text-sm font-bold text-slate-500 dark:text-slate-300">
+              {bookings.length} registros
+            </span>
           </div>
         </div>
 
