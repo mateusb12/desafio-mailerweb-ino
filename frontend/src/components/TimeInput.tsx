@@ -7,7 +7,7 @@ type TimeInputProps = {
   onChange: (value: string) => void
   required?: boolean
   disabled?: boolean
-  minTime?: string // Nova propriedade
+  minTime?: string
 }
 
 const fieldClass =
@@ -17,14 +17,20 @@ function pad(value: number) {
   return String(value).padStart(2, "0")
 }
 
+// Atualizado para gerar opções apenas das 07:00 às 20:00
 function createTimeOptions() {
-  return Array.from({ length: 24 * 4 }, (_, index) => {
-    const totalMinutes = index * 15
-    const hour = Math.floor(totalMinutes / 60)
-    const minute = totalMinutes % 60
+  const options: string[] = []
 
-    return `${pad(hour)}:${pad(minute)}`
-  })
+  for (let hour = 7; hour <= 20; hour++) {
+    for (let minute = 0; minute < 60; minute += 15) {
+      // Impede de passar das 20:00 (não gera 20:15, 20:30, etc)
+      if (hour === 20 && minute > 0) break
+
+      options.push(`${pad(hour)}:${pad(minute)}`)
+    }
+  }
+
+  return options
 }
 
 const TIME_OPTIONS = createTimeOptions()
@@ -36,7 +42,12 @@ function normalizeTime(value: string) {
 
   const hour = Number(match[1])
   const minute = Number(match[2] || "0")
-  if (hour < 0 || hour > 23 || minute < 0 || minute > 59) return ""
+
+  // Se a pessoa digitar algo fora do horário comercial, ignoramos
+  if (hour < 7 || hour > 20) return ""
+
+  // Se a pessoa digitar algo como 20:15, travamos no limite máximo de 20:00
+  if (hour === 20 && minute > 0) return "20:00"
 
   const roundedMinute = Math.min(45, Math.round(minute / 15) * 15)
 
@@ -62,13 +73,11 @@ export default function TimeInput({
   const displayValue = isEditing ? draftValue : value
 
   const filteredOptions = useMemo(() => {
-    // 1. Filtra as opções pelo minTime, se ele existir
     let availableOptions = options
     if (minTime) {
       availableOptions = availableOptions.filter(option => option >= minTime)
     }
 
-    // 2. Filtra pelo que o usuário está digitando
     const typed = isEditing ? draftValue.trim() : ""
     if (!typed) return availableOptions
 
@@ -102,7 +111,6 @@ export default function TimeInput({
     const normalized = normalizeTime(displayValue)
     setIsEditing(false)
 
-    // Impede de salvar um valor menor que o minTime se digitado manualmente
     if (normalized && (!minTime || normalized >= minTime)) {
       onChange(normalized)
       setDraftValue(normalized)
