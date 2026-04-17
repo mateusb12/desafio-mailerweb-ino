@@ -37,6 +37,7 @@ Serviços:
 - PostgreSQL: `localhost:5432`
 
 O Compose sobe `db`, `backend`, `worker` e `frontend`. O worker usa o mesmo código do backend, aponta para o mesmo PostgreSQL e não expõe porta HTTP.
+O `JWT_SECRET_KEY` de desenvolvimento já é definido no `docker-compose.yml`, então não é necessário criar `.env` para executar via Compose.
 
 Para subir só o worker, quando os demais serviços já estiverem disponíveis:
 
@@ -142,6 +143,25 @@ Authorization: Bearer <access_token>
 ```
 
 Reservas só podem ser alteradas ou canceladas pelo usuário que criou a reserva.
+
+## Salas
+
+Endpoints principais:
+
+- `GET /rooms`
+- `POST /rooms`
+- `GET /rooms/{id}`
+
+Criar sala:
+
+```json
+{
+  "name": "Sala Reunião 1",
+  "capacity": 8
+}
+```
+
+O nome da sala deve ser único e a capacidade deve ser maior que zero.
 
 ## Seed de Desenvolvimento
 
@@ -281,3 +301,4 @@ Essa escolha mantém o escopo pequeno e minimamente viável para o desafio técn
 - múltiplos workers concorrentes
 - observabilidade (metrics/logging estruturado)
 - UI para status de entregas
+

@@ -5,6 +5,7 @@ x-backend-common: &backend-common
       condition: service_healthy
   environment:
     DATABASE_URL: postgresql://postgres:postgres@db:5432/meeting_rooms
+    JWT_SECRET_KEY: docker-compose-dev-secret
   volumes:
     - ./backend:/app
     - /app/.venv
