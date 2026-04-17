@@ -4,10 +4,19 @@ import uuid
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session, joinedload, selectinload
 
-from source.features.outbox.constants import BOOKING_CREATED, AGGREGATE_TYPE_BOOKING, BOOKING_UPDATED, BOOKING_CANCELED
+from source.features.outbox.constants import (
+    AGGREGATE_TYPE_BOOKING,
+    BOOKING_CANCELED,
+    BOOKING_CREATED,
+    BOOKING_UPDATED,
+)
 from source.features.outbox.service import create_outbox_event
 from source.core.security import hash_password
-from source.features.bookings.schemas import BookingRequest, BookingResponse, BookingUserResponse
+from source.features.bookings.schemas import (
+    BookingRequest,
+    BookingResponse,
+    BookingUserResponse,
+)
 from source.models.booking import Booking, BookingStatus
 from source.models.booking_participant import BookingParticipant
 from source.models.room import Room
@@ -19,39 +28,42 @@ MIN_DURATION_SECONDS = 15 * 60
 MAX_DURATION_SECONDS = 8 * 60 * 60
 
 
-def _as_utc(value: datetime) -> datetime:
+def normalize_datetime_to_utc(value: datetime) -> datetime:
     if value.tzinfo is None:
         return value.replace(tzinfo=UTC)
 
     return value.astimezone(UTC)
 
 
-def _clean_title(title: str) -> str:
-    cleaned = title.strip()
 
-    if not cleaned:
+def validate_and_normalize_booking_title(title: str) -> str:
+    cleaned_title = title.strip()
+
+    if not cleaned_title:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail="Informe um título para a reserva.",
         )
 
-    return cleaned
+    return cleaned_title
 
 
-def _participant_emails(payload: BookingRequest) -> list[str]:
-    seen: set[str] = set()
-    emails: list[str] = []
+
+def extract_unique_participant_emails(payload: BookingRequest) -> list[str]:
+    seen_emails: set[str] = set()
+    normalized_emails: list[str] = []
 
     for email in payload.participants:
-        normalized = str(email).strip().lower()
-        if normalized and normalized not in seen:
-            emails.append(normalized)
-            seen.add(normalized)
+        normalized_email = str(email).strip().lower()
+        if normalized_email and normalized_email not in seen_emails:
+            normalized_emails.append(normalized_email)
+            seen_emails.add(normalized_email)
 
-    return emails
+    return normalized_emails
 
 
-def _validate_booking_window(
+
+def validate_booking_time_window_and_conflicts(
     db: Session,
     room_id: uuid.UUID,
     start_at: datetime,
@@ -70,21 +82,21 @@ def _validate_booking_window(
             detail="A reserva deve começar e terminar no mesmo dia.",
         )
 
-    duration = (end_at - start_at).total_seconds()
+    duration_in_seconds = (end_at - start_at).total_seconds()
 
-    if duration < MIN_DURATION_SECONDS:
+    if duration_in_seconds < MIN_DURATION_SECONDS:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail="A reserva deve ter duração mínima de 15 minutos.",
         )
 
-    if duration > MAX_DURATION_SECONDS:
+    if duration_in_seconds > MAX_DURATION_SECONDS:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail="A reserva deve ter duração máxima de 8 horas.",
         )
 
-    query = db.query(Booking).filter(
+    overlapping_booking_query = db.query(Booking).filter(
         Booking.room_id == room_id,
         Booking.status == BookingStatus.ACTIVE,
         Booking.start_at < end_at,
@@ -92,16 +104,19 @@ def _validate_booking_window(
     )
 
     if ignored_booking_id is not None:
-        query = query.filter(Booking.id != ignored_booking_id)
+        overlapping_booking_query = overlapping_booking_query.filter(
+            Booking.id != ignored_booking_id
+        )
 
-    if query.first():
+    if overlapping_booking_query.first():
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="Já existe uma reserva ativa para esta sala nesse intervalo. Ajuste o horário ou escolha outra sala.",
         )
 
 
-def _get_room(db: Session, room_id: uuid.UUID) -> Room:
+
+def get_room_or_404(db: Session, room_id: uuid.UUID) -> Room:
     room = db.query(Room).filter(Room.id == room_id).first()
 
     if not room:
@@ -113,7 +128,8 @@ def _get_room(db: Session, room_id: uuid.UUID) -> Room:
     return room
 
 
-def _get_booking(db: Session, booking_id: uuid.UUID) -> Booking:
+
+def get_booking_with_relations_or_404(db: Session, booking_id: uuid.UUID) -> Booking:
     booking = (
         db.query(Booking)
         .options(
@@ -133,7 +149,8 @@ def _get_booking(db: Session, booking_id: uuid.UUID) -> Booking:
     return booking
 
 
-def _ensure_can_manage(booking: Booking, current_user: User) -> None:
+
+def ensure_user_can_manage_booking(booking: Booking, current_user: User) -> None:
     if booking.created_by_user_id != current_user.id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -141,7 +158,8 @@ def _ensure_can_manage(booking: Booking, current_user: User) -> None:
         )
 
 
-def _get_or_create_user_by_email(db: Session, email: str) -> User:
+
+def get_or_create_participant_user_by_email(db: Session, email: str) -> User:
     user = db.query(User).filter(User.email == email).first()
 
     if user:
@@ -159,16 +177,25 @@ def _get_or_create_user_by_email(db: Session, email: str) -> User:
     return user
 
 
-def _replace_participants(db: Session, booking: Booking, emails: list[str]) -> None:
-    db.query(BookingParticipant).filter(BookingParticipant.booking_id == booking.id).delete()
 
-    for email in emails:
-        user = _get_or_create_user_by_email(db, email)
+def replace_booking_participants_by_email(
+    db: Session,
+    booking: Booking,
+    participant_emails: list[str],
+) -> None:
+    db.query(BookingParticipant).filter(
+        BookingParticipant.booking_id == booking.id
+    ).delete()
+
+    for email in participant_emails:
+        user = get_or_create_participant_user_by_email(db, email)
         db.add(BookingParticipant(booking_id=booking.id, user_id=user.id))
 
-def _build_booking_outbox_payload(
+
+
+def build_booking_outbox_payload(
     booking: Booking,
-    participants: list[str],
+    participant_emails: list[str],
 ) -> dict:
     return {
         "booking_id": str(booking.id),
@@ -178,12 +205,15 @@ def _build_booking_outbox_payload(
         "start_at": booking.start_at.isoformat(),
         "end_at": booking.end_at.isoformat(),
         "status": booking.status.value,
-        "participants": participants,
+        "participants": participant_emails,
     }
 
 
-def _booking_response(booking: Booking) -> BookingResponse:
-    participants = sorted(participant.user.email for participant in booking.participants)
+
+def build_booking_response(booking: Booking) -> BookingResponse:
+    participant_emails = sorted(
+        participant.user.email for participant in booking.participants
+    )
 
     return BookingResponse(
         id=booking.id,
@@ -198,8 +228,9 @@ def _booking_response(booking: Booking) -> BookingResponse:
         start_at=booking.start_at,
         end_at=booking.end_at,
         status=booking.status,
-        participants=participants,
+        participants=participant_emails,
     )
+
 
 
 def list_bookings(db: Session) -> list[BookingResponse]:
@@ -213,17 +244,27 @@ def list_bookings(db: Session) -> list[BookingResponse]:
         .all()
     )
 
-    return [_booking_response(booking) for booking in bookings]
+    return [build_booking_response(booking) for booking in bookings]
 
 
-def create_booking(db: Session, payload: BookingRequest, current_user: User) -> BookingResponse:
-    title = _clean_title(payload.title)
-    start_at = _as_utc(payload.start_at)
-    end_at = _as_utc(payload.end_at)
-    participants = _participant_emails(payload)
 
-    _get_room(db, payload.room_id)
-    _validate_booking_window(db, payload.room_id, start_at, end_at)
+def create_booking(
+    db: Session,
+    payload: BookingRequest,
+    current_user: User,
+) -> BookingResponse:
+    title = validate_and_normalize_booking_title(payload.title)
+    start_at = normalize_datetime_to_utc(payload.start_at)
+    end_at = normalize_datetime_to_utc(payload.end_at)
+    participant_emails = extract_unique_participant_emails(payload)
+
+    get_room_or_404(db, payload.room_id)
+    validate_booking_time_window_and_conflicts(
+        db,
+        payload.room_id,
+        start_at,
+        end_at,
+    )
 
     booking = Booking(
         title=title,
@@ -236,7 +277,7 @@ def create_booking(db: Session, payload: BookingRequest, current_user: User) -> 
     db.add(booking)
     db.flush()
 
-    _replace_participants(db, booking, participants)
+    replace_booking_participants_by_email(db, booking, participant_emails)
     db.flush()
 
     create_outbox_event(
@@ -244,17 +285,23 @@ def create_booking(db: Session, payload: BookingRequest, current_user: User) -> 
         aggregate_type=AGGREGATE_TYPE_BOOKING,
         aggregate_id=booking.id,
         event_type=BOOKING_CREATED,
-        payload=_build_booking_outbox_payload(booking, participants),
+        payload=build_booking_outbox_payload(booking, participant_emails),
     )
 
     db.commit()
 
-    return _booking_response(_get_booking(db, booking.id))
+    return build_booking_response(get_booking_with_relations_or_404(db, booking.id))
 
 
-def update_booking(db: Session, booking_id: uuid.UUID, payload: BookingRequest, current_user: User) -> BookingResponse:
-    booking = _get_booking(db, booking_id)
-    _ensure_can_manage(booking, current_user)
+
+def update_booking(
+    db: Session,
+    booking_id: uuid.UUID,
+    payload: BookingRequest,
+    current_user: User,
+) -> BookingResponse:
+    booking = get_booking_with_relations_or_404(db, booking_id)
+    ensure_user_can_manage_booking(booking, current_user)
 
     if booking.status == BookingStatus.CANCELED:
         raise HTTPException(
@@ -262,19 +309,26 @@ def update_booking(db: Session, booking_id: uuid.UUID, payload: BookingRequest, 
             detail="Reservas canceladas não podem ser editadas.",
         )
 
-    title = _clean_title(payload.title)
-    start_at = _as_utc(payload.start_at)
-    end_at = _as_utc(payload.end_at)
-    participants = _participant_emails(payload)
+    title = validate_and_normalize_booking_title(payload.title)
+    start_at = normalize_datetime_to_utc(payload.start_at)
+    end_at = normalize_datetime_to_utc(payload.end_at)
+    participant_emails = extract_unique_participant_emails(payload)
 
-    _get_room(db, payload.room_id)
-    _validate_booking_window(db, payload.room_id, start_at, end_at, ignored_booking_id=booking.id)
+    get_room_or_404(db, payload.room_id)
+    validate_booking_time_window_and_conflicts(
+        db,
+        payload.room_id,
+        start_at,
+        end_at,
+        ignored_booking_id=booking.id,
+    )
 
     booking.title = title
     booking.room_id = payload.room_id
     booking.start_at = start_at
     booking.end_at = end_at
-    _replace_participants(db, booking, participants)
+
+    replace_booking_participants_by_email(db, booking, participant_emails)
     db.flush()
 
     create_outbox_event(
@@ -282,33 +336,40 @@ def update_booking(db: Session, booking_id: uuid.UUID, payload: BookingRequest, 
         aggregate_type=AGGREGATE_TYPE_BOOKING,
         aggregate_id=booking.id,
         event_type=BOOKING_UPDATED,
-        payload=_build_booking_outbox_payload(booking, participants),
+        payload=build_booking_outbox_payload(booking, participant_emails),
     )
 
     db.commit()
 
-    return _booking_response(_get_booking(db, booking.id))
+    return build_booking_response(get_booking_with_relations_or_404(db, booking.id))
 
 
-def cancel_booking(db: Session, booking_id: uuid.UUID, current_user: User) -> BookingResponse:
-    booking = _get_booking(db, booking_id)
-    _ensure_can_manage(booking, current_user)
+
+def cancel_booking(
+    db: Session,
+    booking_id: uuid.UUID,
+    current_user: User,
+) -> BookingResponse:
+    booking = get_booking_with_relations_or_404(db, booking_id)
+    ensure_user_can_manage_booking(booking, current_user)
 
     if booking.status != BookingStatus.CANCELED:
         booking.status = BookingStatus.CANCELED
         booking.canceled_at = datetime.now(UTC)
         db.flush()
 
-        participants = sorted(participant.user.email for participant in booking.participants)
+        participant_emails = sorted(
+            participant.user.email for participant in booking.participants
+        )
 
         create_outbox_event(
             db,
             aggregate_type=AGGREGATE_TYPE_BOOKING,
             aggregate_id=booking.id,
             event_type=BOOKING_CANCELED,
-            payload=_build_booking_outbox_payload(booking, participants),
+            payload=build_booking_outbox_payload(booking, participant_emails),
         )
 
         db.commit()
 
-    return _booking_response(_get_booking(db, booking.id))
+    return build_booking_response(get_booking_with_relations_or_404(db, booking.id))
