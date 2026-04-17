@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react"
+import BookingsCalendarView from "../components/BookingsCalendarView"
 import DateInput from "../components/DateInput"
 import TimeInput from "../components/TimeInput"
 import { bookingService } from "../services/bookingService"
@@ -28,6 +29,8 @@ const emptyForm: BookingFormInput = {
   participants: [],
 }
 
+type BookingsViewMode = "list" | "calendar"
+
 const dateFormatter = new Intl.DateTimeFormat("pt-BR", {
   day: "2-digit",
   month: "short",
@@ -55,6 +58,34 @@ function formatTime(value: string) {
 
 function formatTimeRange(startAt: string, endAt: string) {
   return `${formatTime(startAt)} às ${formatTime(endAt)}`
+}
+
+function getTodayDateKey() {
+  const now = new Date()
+  const month = String(now.getMonth() + 1).padStart(2, "0")
+  const day = String(now.getDate()).padStart(2, "0")
+
+  return `${now.getFullYear()}-${month}-${day}`
+}
+
+function getStoredViewMode(): BookingsViewMode {
+  return localStorage.getItem("bookings:viewMode") === "calendar"
+    ? "calendar"
+    : "list"
+}
+
+function getInitialCalendarDate(bookings: Booking[]) {
+  const today = getTodayDateKey()
+  const hasBookingToday = bookings.some(booking => {
+    return booking.status !== "cancelled" && booking.start_at.slice(0, 10) === today
+  })
+
+  if (hasBookingToday) return today
+
+  return (
+    bookings.find(booking => booking.status !== "cancelled")?.start_at.slice(0, 10) ??
+    today
+  )
 }
 
 function splitDateTime(value: string) {
@@ -140,6 +171,9 @@ export default function BookingsPage() {
   const [rooms, setRooms] = useState<Room[]>([])
   const [bookings, setBookings] = useState<Booking[]>([])
   const [form, setForm] = useState<BookingFormInput>(emptyForm)
+  const [viewMode, setViewMode] = useState<BookingsViewMode>(getStoredViewMode)
+  const [calendarDate, setCalendarDate] = useState("")
+  const [calendarRoomId, setCalendarRoomId] = useState("")
   const [participantsText, setParticipantsText] = useState("")
   const [editingId, setEditingId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
@@ -166,6 +200,7 @@ export default function BookingsPage() {
 
       setRooms(roomsData)
       setBookings(bookingsData)
+      setCalendarDate(current => current || getInitialCalendarDate(bookingsData))
       setForm(current => ({
         ...current,
         roomId: current.roomId || roomsData[0]?.id || "",
@@ -181,10 +216,22 @@ export default function BookingsPage() {
     loadData()
   }, [])
 
+  useEffect(() => {
+    localStorage.setItem("bookings:viewMode", viewMode)
+  }, [viewMode])
+
   function resetForm() {
     setEditingId(null)
-    setForm({ ...emptyForm, roomId: rooms[0]?.id || "" })
+    const roomId = rooms[0]?.id || ""
+    setForm({ ...emptyForm, roomId })
     setParticipantsText("")
+  }
+
+  function updateForm(nextForm: BookingFormInput) {
+    setForm(nextForm)
+
+    if (nextForm.date) setCalendarDate(nextForm.date)
+    if (nextForm.roomId) setCalendarRoomId(nextForm.roomId)
   }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -230,7 +277,7 @@ export default function BookingsPage() {
     const end = splitDateTime(booking.end_at)
 
     setEditingId(booking.id)
-    setForm({
+    updateForm({
       title: booking.title,
       roomId: booking.roomId,
       date: start.date,
@@ -300,7 +347,7 @@ export default function BookingsPage() {
                 className={fieldClass}
                 value={form.title}
                 onChange={event =>
-                  setForm(current => ({ ...current, title: event.target.value }))
+                  updateForm({ ...form, title: event.target.value })
                 }
                 required
               />
@@ -312,7 +359,7 @@ export default function BookingsPage() {
                 className={fieldClass}
                 value={form.roomId}
                 onChange={event =>
-                  setForm(current => ({ ...current, roomId: event.target.value }))
+                  updateForm({ ...form, roomId: event.target.value })
                 }
                 required
               >
@@ -335,10 +382,10 @@ export default function BookingsPage() {
                   id="booking-date"
                   value={form.date}
                   onChange={value =>
-                    setForm(current => ({
-                      ...current,
+                    updateForm({
+                      ...form,
                       date: value,
-                    }))
+                    })
                   }
                   required
                 />
@@ -351,10 +398,10 @@ export default function BookingsPage() {
                   id="booking-start-time"
                   value={form.startTime}
                   onChange={value =>
-                    setForm(current => ({
-                      ...current,
+                    updateForm({
+                      ...form,
                       startTime: normalizeQuarterHour(value),
-                    }))
+                    })
                   }
                   required
                 />
@@ -367,10 +414,10 @@ export default function BookingsPage() {
                   id="booking-end-time"
                   value={form.endTime}
                   onChange={value =>
-                    setForm(current => ({
-                      ...current,
+                    updateForm({
+                      ...form,
                       endTime: normalizeQuarterHour(value),
-                    }))
+                    })
                   }
                   required
                 />
@@ -415,13 +462,45 @@ export default function BookingsPage() {
       </div>
 
       <div className="min-w-0">
-        <div className="mb-4 flex items-center justify-between gap-4">
-          <h2 className="m-0 text-xl tracking-normal text-[#172033] dark:text-slate-50">
-            Reservas existentes
-          </h2>
-          <span className="text-sm font-bold text-slate-500 dark:text-slate-300">
-            {bookings.length} registros
-          </span>
+        <div className="mb-4 flex items-center justify-between gap-4 max-[720px]:flex-col max-[720px]:items-stretch">
+          <div className="min-w-0">
+            <h2 className="m-0 text-xl tracking-normal text-[#172033] dark:text-slate-50">
+              Reservas existentes
+            </h2>
+            <span className="mt-1 block text-sm font-bold text-slate-500 dark:text-slate-300">
+              {bookings.length} registros
+            </span>
+          </div>
+
+          <div
+            className="grid grid-cols-2 rounded-xl border border-slate-200 bg-white p-1 shadow-[0_10px_22px_rgba(23,32,51,0.07)] dark:border-slate-700 dark:bg-slate-900"
+            role="tablist"
+            aria-label="Modo de visualizacao das reservas"
+          >
+            {[
+              ["list", "Lista"],
+              ["calendar", "Calendar"],
+            ].map(([mode, label]) => {
+              const isSelected = viewMode === mode
+
+              return (
+                <button
+                  aria-selected={isSelected}
+                  className={`min-h-10 rounded-lg px-4 text-sm font-extrabold transition ${
+                    isSelected
+                      ? "bg-blue-600 text-white shadow-[0_8px_18px_rgba(37,99,235,0.22)] dark:bg-blue-400 dark:text-slate-950"
+                      : "text-slate-600 hover:bg-blue-50 hover:text-blue-700 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-blue-300"
+                  }`}
+                  key={mode}
+                  onClick={() => setViewMode(mode as BookingsViewMode)}
+                  role="tab"
+                  type="button"
+                >
+                  {label}
+                </button>
+              )
+            })}
+          </div>
         </div>
 
         {loading && (
@@ -431,13 +510,27 @@ export default function BookingsPage() {
           </div>
         )}
 
-        {!loading && bookings.length === 0 && (
+        {!loading && viewMode === "list" && bookings.length === 0 && (
           <div className="rounded-xl border border-dashed border-slate-300 bg-white/70 p-8 text-center text-slate-500 dark:border-slate-700 dark:bg-[#172033]/70 dark:text-slate-300">
             Nenhuma reserva cadastrada.
           </div>
         )}
 
-        {!loading && bookings.length > 0 && (
+        {!loading && viewMode === "calendar" && (
+          <BookingsCalendarView
+            bookings={bookings}
+            editingId={editingId}
+            form={form}
+            onDateChange={setCalendarDate}
+            onRoomChange={setCalendarRoomId}
+            rooms={rooms}
+            roomById={roomById}
+            selectedDate={calendarDate}
+            selectedRoomId={calendarRoomId}
+          />
+        )}
+
+        {!loading && viewMode === "list" && bookings.length > 0 && (
           <div className="grid gap-3">
             {bookings.map(booking => {
               const room = roomById.get(booking.roomId)
