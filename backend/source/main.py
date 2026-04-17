@@ -1,3 +1,4 @@
+import asyncio
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -5,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 from starlette.responses import RedirectResponse
 
+from source.features.outbox.worker_runtime import worker_loop
 from source.features.auth.controller import auth_bp
 from source.core.config import settings
 from source.core.migrations import run_migrations
@@ -18,7 +20,15 @@ from source.features.rooms.controller import rooms_bp
 async def lifespan(_app: FastAPI):
     settings.require_jwt_secret_key()
     run_migrations()
-    yield
+    worker_task = asyncio.create_task(worker_loop())
+    try:
+        yield
+    finally:
+        worker_task.cancel()
+        try:
+            await worker_task
+        except asyncio.CancelledError:
+            pass
 
 
 app = FastAPI(title="Meeting Room Booking API", lifespan=lifespan)
