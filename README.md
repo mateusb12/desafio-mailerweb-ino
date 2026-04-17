@@ -272,3 +272,12 @@ Essa escolha mantém o escopo pequeno e minimamente viável para o desafio técn
 - PostgreSQL garante consistência
 - a API fica simples e fácil de entender
 - o worker demonstra processamento assíncrono sem adicionar infraestrutura desnecessária.
+
+## Possíveis melhorias futuras
+
+- backoff exponencial no retry do worker
+- envio real de e-mail via SMTP
+- paginação de bookings
+- múltiplos workers concorrentes
+- observabilidade (metrics/logging estruturado)
+- UI para status de entregas
