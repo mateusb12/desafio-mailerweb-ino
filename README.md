@@ -77,6 +77,14 @@ http://localhost:8000/docs
 ```
 localhost:5432
 ```
+
+**Worker de outbox**:
+```
+docker compose up worker
+```
+
+Ao executar `docker compose up --build`, o Compose sobe `backend`, `worker`, `db` e `frontend`.
+O worker usa o mesmo código do backend, aponta para o mesmo PostgreSQL e não expõe porta HTTP.
 ---
 
 
@@ -103,6 +111,13 @@ export DATABASE_URL=postgresql://postgres:postgres@localhost:5432/meeting_rooms
 ```
 poetry run uvicorn source.main:app --reload
 ```
+
+**Executar worker em outro terminal**:
+```
+cd backend
+poetry run python -m source.features.outbox.run_worker
+```
+
 **API**:
 ```
 http://localhost:8000
@@ -189,26 +204,32 @@ Fluxo:
 6. uma entrega é registrada em `email_deliveries`
 7. o evento é marcado como processado
 
-## Worker atual
+## Worker
 
-O worker atual é propositalmente simples e roda dentro do lifecycle da aplicação FastAPI.
-Quando a API sobe, o `lifespan` executa as migrations e cria uma task assíncrona para o `worker_loop`.
-Esse loop consulta periodicamente eventos `pending` em `outbox_events`, processa em pequenos lotes e registra a entrega correspondente em `email_deliveries`.
+O worker é propositalmente simples e roda como processo separado da API.
+A API continua responsável por subir o FastAPI, aplicar migrations no startup e expor endpoints.
+O worker possui um entrypoint próprio em `source/features/outbox/run_worker.py`, aplica migrations no startup e executa o `worker_loop`.
 
-Em desenvolvimento, isso significa que basta subir o backend normalmente:
+Em desenvolvimento, isso significa que basta subir o ambiente normalmente:
 
 ```
 docker compose up --build
 ```
 
-ou, manualmente:
+ou, manualmente, em dois terminais:
 
 ```
 cd backend
 poetry run uvicorn source.main:app --reload
 ```
 
-Não existe processo separado de Celery nesta versão.
+```
+cd backend
+poetry run python -m source.features.outbox.run_worker
+```
+
+Não existe Celery, Redis, RabbitMQ ou Kafka nesta versão. A separação é apenas de processo:
+API e worker compartilham o mesmo banco e o mesmo código de domínio, mas executam de forma independente.
 
 ## Retry
 
@@ -241,9 +262,10 @@ Neste desafio, a escolha foi manter uma solução proporcional ao escopo:
 - menos moving parts para avaliar
 - consistência garantida pelo PostgreSQL
 - comportamento assíncrono suficiente para demonstrar o padrão Outbox
+- separação real entre processo web e processo de worker
 - caminho claro para evolução futura
 
-Uma evolução futura poderia extrair o processamento de `outbox_events` para um worker separado, usando Celery ou outra fila, mantendo a tabela de outbox como fonte transacional dos eventos. A API continuaria criando reservas e eventos na mesma transação; o mecanismo de consumo é que passaria a ser externo.
+Uma evolução futura poderia substituir o polling simples por Celery ou outra fila, mantendo a tabela de outbox como fonte transacional dos eventos. A API continuaria criando reservas e eventos na mesma transação; o mecanismo de consumo é que passaria a ter uma infraestrutura dedicada.
 
 Benefícios:
 
