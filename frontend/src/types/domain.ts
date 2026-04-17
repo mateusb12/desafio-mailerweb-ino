@@ -63,3 +63,25 @@ export type EmailDelivery = {
   deliveredAt: string | null
   createdAt: string
 }
+
+export type DashboardBookingSummary = {
+  id: string
+  title: string
+  roomId: string
+  roomName: string
+  startAt: string
+  endAt: string
+  participantsCount: number
+}
+
+export type DashboardMetrics = {
+  roomsCount: number
+  activeBookingsCount: number
+  todayActiveBookingsCount: number
+  myUpcomingBookingsCount: number
+  emailDeliveriesCount: number
+  processedEmailDeliveriesCount: number
+  pendingOutboxEventsCount: number
+  failedOutboxEventsCount: number
+  nextBooking: DashboardBookingSummary | null
+}
