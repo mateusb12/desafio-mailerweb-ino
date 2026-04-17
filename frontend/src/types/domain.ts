@@ -43,3 +43,18 @@ export type BookingFormInput = {
   endTime: string
   participants: string[]
 }
+
+export type EmailDeliveryStatus = "processed" | "delivered"
+
+export type EmailDelivery = {
+  id: string
+  recipientUserId: string | null
+  recipientEmail: string
+  subject: string
+  body: string
+  emailType: string
+  status: EmailDeliveryStatus
+  sourceEventId: string | null
+  deliveredAt: string | null
+  createdAt: string
+}

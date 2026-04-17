@@ -6,13 +6,16 @@ from sqlalchemy.orm import Session
 
 from source.core.security import hash_password
 from source.features.dev.mock_seed_data import MOCK_BOOKINGS, MOCK_ROOMS, MOCK_USERS
+from source.features.email_deliveries.service import register_email_delivery
 from source.models.booking import Booking, BookingStatus
 from source.models.booking_participant import BookingParticipant
+from source.models.email_delivery import EmailDelivery, EmailDeliveryStatus
 from source.models.room import Room
 from source.models.user import User, UserRole
 
 MOCK_NAMESPACE = uuid.UUID("661fd4cb-4770-4d83-bb7f-a8c50cff902e")
 DEV_PASSWORD = "MockPassword123!"
+DEMO_EMAIL_FRONTEND_ID = "email-delivery-foundation"
 
 
 def _mock_uuid(kind: str, frontend_id: str) -> uuid.UUID:
@@ -83,6 +86,47 @@ def _booking_status(frontend_status: str) -> BookingStatus:
     return BookingStatus.ACTIVE
 
 
+def _upsert_demo_email_delivery(db: Session, recipient: User) -> EmailDelivery:
+    delivery_id = _mock_uuid("email_delivery", DEMO_EMAIL_FRONTEND_ID)
+    existing = db.get(EmailDelivery, delivery_id)
+
+    if existing:
+        existing.recipient_user_id = recipient.id
+        existing.recipient_email = recipient.email
+        existing.subject = "Welcome to MailerWeb notifications"
+        existing.body = (
+            "Esta inbox demonstra a fundacao de email_deliveries. No proximo passo, "
+            "o worker vai processar eventos pendentes da outbox e registrar aqui os "
+            "emails preparados ou entregues pelo sistema."
+        )
+        existing.email_type = "system_welcome"
+        existing.status = EmailDeliveryStatus.PROCESSED
+        existing.source_event_id = None
+        existing.delivery_metadata = {"seed": True, "purpose": "email_delivery_foundation"}
+        existing.delivered_at = None
+        db.flush()
+        return existing
+
+    delivery = register_email_delivery(
+        db,
+        delivery_id=delivery_id,
+        recipient_user_id=recipient.id,
+        recipient_email=recipient.email,
+        subject="Welcome to MailerWeb notifications",
+        body=(
+            "Esta inbox demonstra a fundacao de email_deliveries. No proximo passo, "
+            "o worker vai processar eventos pendentes da outbox e registrar aqui os "
+            "emails preparados ou entregues pelo sistema."
+        ),
+        email_type="system_welcome",
+        status=EmailDeliveryStatus.PROCESSED,
+        delivery_metadata={"seed": True, "purpose": "email_delivery_foundation"},
+    )
+    db.flush()
+
+    return delivery
+
+
 def populate_mock_data(db: Session) -> dict:
     password_hash = hash_password(DEV_PASSWORD)
 
@@ -135,6 +179,8 @@ def populate_mock_data(db: Session) -> dict:
                 )
             )
 
+    demo_delivery = _upsert_demo_email_delivery(db, users_by_frontend_id["usr-001"])
+
     db.commit()
 
     return {
@@ -142,5 +188,6 @@ def populate_mock_data(db: Session) -> dict:
         "rooms": len(rooms_by_frontend_id),
         "bookings": len(MOCK_BOOKINGS),
         "booking_participants": sum(len(set(booking["participants"])) for booking in MOCK_BOOKINGS),
+        "email_deliveries": 1 if demo_delivery else 0,
         "participant_only_users": sorted(_collect_participant_emails() - {user["email"] for user in MOCK_USERS}),
     }

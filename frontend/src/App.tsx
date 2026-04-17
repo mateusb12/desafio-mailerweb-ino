@@ -6,6 +6,7 @@ import RegisterPage from "./pages/RegisterPage"
 import DashboardPage from "./pages/DashboardPage"
 import RoomsPage from "./pages/RoomsPage"
 import BookingsPage from "./pages/BookingsPage"
+import EmailDeliveriesPage from "./pages/EmailDeliveriesPage"
 
 function App() {
   return (
@@ -39,6 +40,16 @@ function App() {
             <ProtectedRoute>
               <AuthenticatedLayout>
                 <BookingsPage />
+              </AuthenticatedLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/app/emails"
+          element={
+            <ProtectedRoute>
+              <AuthenticatedLayout>
+                <EmailDeliveriesPage />
               </AuthenticatedLayout>
             </ProtectedRoute>
           }

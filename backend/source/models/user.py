@@ -35,3 +35,4 @@ class User(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow)
     created_bookings = relationship("Booking", back_populates="created_by")
     participations = relationship("BookingParticipant", back_populates="user")
+    email_deliveries = relationship("EmailDelivery", back_populates="recipient_user")

@@ -8,6 +8,7 @@ from source.core.config import settings
 from source.core.database import Base
 from source.models.booking import Booking
 from source.models.booking_participant import BookingParticipant
+from source.models.email_delivery import EmailDelivery
 from source.models.outbox_event import OutboxEvent
 from source.models.room import Room
 from source.models.user import User
