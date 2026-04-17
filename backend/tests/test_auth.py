@@ -1,12 +1,5 @@
-import uuid
-
-import pytest
 from fastapi import Depends
-from fastapi.testclient import TestClient
-from sqlalchemy.orm import Session
 
-from source.core.database import engine, get_db
-from source.core.security import hash_password
 from source.features.auth.dependencies import require_roles
 from source.main import app
 from source.models.user import User, UserRole
@@ -15,67 +8,6 @@ from source.models.user import User, UserRole
 @app.get("/_test/auth/admin-only")
 def admin_only_route(_current_user: User = Depends(require_roles(UserRole.ADMIN))):
     return {"ok": True}
-
-
-@pytest.fixture
-def db_session():
-    connection = engine.connect()
-    transaction = connection.begin()
-    session = Session(bind=connection)
-
-    try:
-        yield session
-    finally:
-        session.close()
-        if transaction.is_active:
-            transaction.rollback()
-        connection.close()
-
-
-@pytest.fixture
-def client(db_session):
-    def override_get_db():
-        yield db_session
-
-    app.dependency_overrides[get_db] = override_get_db
-
-    try:
-        yield TestClient(app)
-    finally:
-        app.dependency_overrides.clear()
-
-
-@pytest.fixture
-def users(db_session):
-    suffix = uuid.uuid4()
-
-    active_user = User(
-        email=f"auth-user-{suffix}@example.com",
-        password_hash=hash_password("UserPass123!"),
-        role=UserRole.USER,
-        is_active=True,
-    )
-    admin_user = User(
-        email=f"auth-admin-{suffix}@example.com",
-        password_hash=hash_password("AdminPass123!"),
-        role=UserRole.ADMIN,
-        is_active=True,
-    )
-    inactive_user = User(
-        email=f"auth-inactive-{suffix}@example.com",
-        password_hash=hash_password("InactivePass123!"),
-        role=UserRole.USER,
-        is_active=False,
-    )
-
-    db_session.add_all([active_user, admin_user, inactive_user])
-    db_session.flush()
-
-    return {
-        "user": active_user,
-        "admin": admin_user,
-        "inactive": inactive_user,
-    }
 
 
 def login(client, email: str, password: str):

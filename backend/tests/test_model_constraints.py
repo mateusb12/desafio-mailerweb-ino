@@ -3,29 +3,12 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 from sqlalchemy.exc import DataError, IntegrityError, StatementError
-from sqlalchemy.orm import Session
 
-from source.core.database import engine
 from source.models.booking import Booking
 from source.models.booking_participant import BookingParticipant  # noqa: F401
 from source.models.outbox_event import OutboxEvent
 from source.models.room import Room
 from source.models.user import User
-
-
-@pytest.fixture
-def db_session():
-    connection = engine.connect()
-    transaction = connection.begin()
-    session = Session(bind=connection)
-
-    try:
-        yield session
-    finally:
-        session.close()
-        if transaction.is_active:
-            transaction.rollback()
-        connection.close()
 
 
 def test_room_capacity_deve_ser_positiva(db_session):
