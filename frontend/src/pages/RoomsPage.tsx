@@ -26,8 +26,6 @@ export default function RoomsPage() {
   const [rooms, setRooms] = useState<Room[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-  const [detailLoadingId, setDetailLoadingId] = useState<string | null>(null)
-  const [selectedRoom, setSelectedRoom] = useState<Room | null>(null)
   const [form, setForm] = useState({ name: "", capacity: "4" })
   const [error, setError] = useState("")
   const [feedback, setFeedback] = useState("")
@@ -86,7 +84,6 @@ export default function RoomsPage() {
 
       setForm({ name: "", capacity: "4" })
       setFeedback(`Sala "${room.name}" criada com sucesso.`)
-      setSelectedRoom(room)
       await loadRooms()
     } catch (err) {
       setError(getErrorMessage(err))
@@ -95,44 +92,28 @@ export default function RoomsPage() {
     }
   }
 
-  async function handleShowDetails(roomId: string) {
-    if (detailLoadingId) return
-
-    setDetailLoadingId(roomId)
-    setError("")
-    setFeedback("")
-
-    try {
-      setSelectedRoom(await roomService.getRoom(roomId))
-    } catch (err) {
-      setError(getErrorMessage(err))
-    } finally {
-      setDetailLoadingId(null)
-    }
-  }
-
   return (
     <section className="mx-auto w-full max-w-[1080px]">
       <header className="mb-7">
         <span className={badgeClass}>Salas</span>
         <h1 className="mb-0 mt-3.5 text-[clamp(2rem,4vw,3.25rem)] leading-[1] tracking-normal text-[#172033] dark:text-slate-50">
-          Salas disponiveis
+          Salas disponíveis
         </h1>
         <p className="mb-0 mt-2.5 max-w-[42rem] leading-relaxed text-slate-500 dark:text-slate-300">
-          Consulte os espacos que podem receber reservas e confira a capacidade
+          Consulte os espaços que podem receber reservas e confira a capacidade
           de cada sala.
         </p>
       </header>
 
-      <div className="mb-6 grid min-w-0 grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
-        <form className={cardClass} onSubmit={handleSubmit}>
-          <div className="mb-5 flex items-center justify-between gap-3">
+      <div className="mb-6">
+        <form className={`${cardClass} max-w-md`} onSubmit={handleSubmit}>
+          <div className="mb-5">
             <h2 className="m-0 text-xl tracking-normal text-[#172033] dark:text-slate-50">
               Nova sala
             </h2>
           </div>
 
-          <div className="grid min-w-0 gap-4 sm:grid-cols-[minmax(0,1fr)_140px]">
+          <div className="grid gap-4">
             <label className={labelClass}>
               Nome
               <input
@@ -181,40 +162,13 @@ export default function RoomsPage() {
           )}
 
           <button
-            className="mt-4 inline-flex min-h-[46px] w-full items-center justify-center rounded-lg bg-blue-600 px-4 font-extrabold text-white shadow-[0_12px_22px_rgba(37,99,235,0.22)] hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-blue-400 dark:text-slate-950 dark:hover:bg-blue-200 sm:w-auto"
+            className="mt-4 inline-flex min-h-[46px] items-center justify-center rounded-lg bg-blue-600 px-4 font-extrabold text-white shadow-[0_12px_22px_rgba(37,99,235,0.22)] hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-blue-400 dark:text-slate-950 dark:hover:bg-blue-200"
             disabled={saving || loading}
             type="submit"
           >
             {saving ? "Criando..." : "Criar sala"}
           </button>
         </form>
-
-        <aside className={cardClass}>
-          <h2 className="m-0 text-xl tracking-normal text-[#172033] dark:text-slate-50">
-            Detalhe
-          </h2>
-
-          {selectedRoom ? (
-            <div className="mt-4 grid gap-3 text-sm text-slate-500 dark:text-slate-300">
-              <p className="m-0">
-                <span className="font-extrabold text-slate-600 dark:text-slate-200">
-                  Nome:
-                </span>{" "}
-                {selectedRoom.name}
-              </p>
-              <p className="m-0">
-                <span className="font-extrabold text-slate-600 dark:text-slate-200">
-                  Capacidade:
-                </span>{" "}
-                {selectedRoom.capacity} pessoas
-              </p>
-            </div>
-          ) : (
-            <p className="mb-0 mt-4 text-sm leading-relaxed text-slate-500 dark:text-slate-300">
-              Selecione uma sala para ver nome e capacidade.
-            </p>
-          )}
-        </aside>
       </div>
 
       {loading && (
@@ -233,32 +187,41 @@ export default function RoomsPage() {
       {!loading && rooms.length > 0 && (
         <div className="grid grid-cols-2 gap-4 max-[820px]:grid-cols-1">
           {rooms.map(room => (
-            <article
-              className={cardClass}
-              key={room.id}
-            >
+            <article className={cardClass} key={room.id}>
               <div className="flex items-start justify-between gap-4">
-                <div>
+                <div className="min-w-0">
                   <h2 className="m-0 text-xl tracking-normal text-[#172033] dark:text-slate-50">
                     {room.name}
                   </h2>
                   <p className="mb-0 mt-2 text-sm leading-relaxed text-slate-500 dark:text-slate-300">
-                    Espaco para reunioes e alinhamentos presenciais.
+                    Sala disponível para reuniões e alinhamentos presenciais.
                   </p>
                 </div>
+
                 <span className="inline-flex min-h-8 flex-none items-center rounded-full border border-teal-600/20 bg-teal-50 px-3 text-sm font-extrabold text-teal-800 dark:border-teal-300/30 dark:bg-teal-950/35 dark:text-teal-200">
                   {room.capacity} pessoas
                 </span>
               </div>
 
-              <button
-                className="mt-4 inline-flex min-h-9 items-center rounded-lg border border-slate-300 bg-white px-3 text-sm font-extrabold text-slate-600 hover:border-blue-600 hover:text-blue-700 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-blue-400 dark:hover:text-blue-300"
-                disabled={detailLoadingId === room.id}
-                type="button"
-                onClick={() => handleShowDetails(room.id)}
-              >
-                {detailLoadingId === room.id ? "Carregando..." : "Ver detalhes"}
-              </button>
+              <div className="mt-5 grid gap-3 rounded-lg border border-slate-200/80 bg-slate-50/80 p-4 dark:border-slate-700/80 dark:bg-slate-900/40">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-sm font-bold text-slate-600 dark:text-slate-300">
+                    Nome
+                  </span>
+                  <span className="text-sm font-semibold text-[#172033] dark:text-slate-100">
+                    {room.name}
+                  </span>
+                </div>
+
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-sm font-bold text-slate-600 dark:text-slate-300">
+                    Capacidade
+                  </span>
+                  <span className="text-sm font-semibold text-[#172033] dark:text-slate-100">
+                    {room.capacity} pessoas
+                  </span>
+                </div>
+              </div>
             </article>
           ))}
         </div>

@@ -82,7 +82,7 @@ export const mockBookings: Booking[] = [
   },
   {
     id: "booking-003",
-    title: "Entrevista Engenharia",
+    title: "Entrevista de Engenharia",
     roomId: "room-rio",
     createdBy: {
       id: "usr-002",
@@ -96,7 +96,7 @@ export const mockBookings: Booking[] = [
   },
   {
     id: "booking-004",
-    title: "Revisao de Campanha",
+    title: "Revisão de Campanha",
     roomId: "room-nexus",
     createdBy: {
       id: "usr-005",
@@ -114,7 +114,7 @@ export const mockBookings: Booking[] = [
   },
   {
     id: "booking-005",
-    title: "1:1 Lideranca",
+    title: "1:1 Liderança",
     roomId: "room-rio",
     createdBy: {
       id: "usr-001",
@@ -128,7 +128,7 @@ export const mockBookings: Booking[] = [
   },
   {
     id: "booking-006",
-    title: "Retrospectiva Produto",
+    title: "Retrospectiva de Produto",
     roomId: "room-aurora",
     createdBy: {
       id: "usr-001",
