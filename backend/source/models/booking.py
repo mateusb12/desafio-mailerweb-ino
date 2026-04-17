@@ -2,9 +2,13 @@ import uuid
 from datetime import datetime
 from enum import Enum
 
-from sqlalchemy import String, DateTime, ForeignKey, Enum as SQLEnum
+from sqlalchemy import String, DateTime, ForeignKey, Enum as SQLEnum, text
+from sqlalchemy.dialects.postgresql import ExcludeConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from source.core.database import Base
+
+BOOKING_ACTIVE_ROOM_TIME_EXCLUSION_CONSTRAINT = "excl_bookings_active_room_time_overlap"
+
 
 class BookingStatus(str, Enum):
     ACTIVE = "active"
@@ -13,6 +17,15 @@ class BookingStatus(str, Enum):
 
 class Booking(Base):
     __tablename__ = "bookings"
+    __table_args__ = (
+        ExcludeConstraint(
+            ("room_id", "="),
+            (text("tstzrange(start_at, end_at, '[)')"), "&&"),
+            where=text("status = 'active'"),
+            using="gist",
+            name=BOOKING_ACTIVE_ROOM_TIME_EXCLUSION_CONSTRAINT,
+        ),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     title: Mapped[str] = mapped_column(String(200))

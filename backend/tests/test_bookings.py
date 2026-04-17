@@ -1,6 +1,15 @@
 from datetime import UTC, datetime, timedelta
+from queue import Queue
+from threading import Barrier, Thread
+import uuid
 
+import pytest
+from sqlalchemy.exc import IntegrityError
+
+from source.core.database import SessionLocal, engine
 from source.models.booking import Booking
+from source.models.room import Room
+from source.models.user import User
 
 
 BASE_START = datetime(2026, 5, 4, 10, 0, tzinfo=UTC)
@@ -167,6 +176,73 @@ def test_create_booking_rejects_overlapping_active_booking(client, users, room_f
     assert response.json() == {
         "detail": "Já existe uma reserva ativa para esta sala nesse intervalo. Ajuste o horário ou escolha outra sala."
     }
+
+
+def test_concurrent_conflicting_booking_insert_is_rejected_by_database_constraint():
+    if engine.dialect.name != "postgresql":
+        pytest.skip("A proteção real de concorrência usa exclusion constraint específica do PostgreSQL.")
+
+    setup_session = SessionLocal()
+    room_id = None
+    user_id = None
+
+    try:
+        room = Room(name=f"sala-concorrencia-{uuid.uuid4()}", capacity=4)
+        user = User(
+            email=f"usuario-concorrencia-{uuid.uuid4()}@teste.com",
+            password_hash="nao-usado",
+        )
+        setup_session.add_all([room, user])
+        setup_session.flush()
+        room_id = room.id
+        user_id = user.id
+        setup_session.commit()
+
+        barrier = Barrier(2)
+        results = Queue()
+
+        def insert_conflicting_booking():
+            session = SessionLocal()
+            try:
+                barrier.wait()
+                booking = Booking(
+                    title="Reserva concorrente",
+                    room_id=room_id,
+                    created_by_user_id=user_id,
+                    start_at=BASE_START + timedelta(days=10),
+                    end_at=BASE_START + timedelta(days=10, hours=1),
+                )
+                session.add(booking)
+                session.flush()
+                session.commit()
+                results.put("created")
+            except IntegrityError:
+                session.rollback()
+                results.put("conflict")
+            finally:
+                session.close()
+
+        threads = [Thread(target=insert_conflicting_booking) for _ in range(2)]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join(timeout=10)
+
+        assert all(not thread.is_alive() for thread in threads)
+        assert sorted(results.get_nowait() for _ in range(2)) == ["conflict", "created"]
+
+    finally:
+        setup_session.close()
+        cleanup_session = SessionLocal()
+        try:
+            if room_id is not None:
+                cleanup_session.query(Booking).filter(Booking.room_id == room_id).delete(synchronize_session=False)
+                cleanup_session.query(Room).filter(Room.id == room_id).delete(synchronize_session=False)
+            if user_id is not None:
+                cleanup_session.query(User).filter(User.id == user_id).delete(synchronize_session=False)
+            cleanup_session.commit()
+        finally:
+            cleanup_session.close()
 
 
 def test_create_booking_allows_adjacent_bookings(client, users, room_factory):

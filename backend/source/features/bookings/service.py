@@ -2,6 +2,7 @@ from datetime import UTC, datetime
 import uuid
 
 from fastapi import HTTPException, status
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload, selectinload
 
 from source.features.outbox.constants import (
@@ -17,7 +18,11 @@ from source.features.bookings.schemas import (
     BookingResponse,
     BookingUserResponse,
 )
-from source.models.booking import Booking, BookingStatus
+from source.models.booking import (
+    BOOKING_ACTIVE_ROOM_TIME_EXCLUSION_CONSTRAINT,
+    Booking,
+    BookingStatus,
+)
 from source.models.booking_participant import BookingParticipant
 from source.models.room import Room
 from source.models.user import User, UserRole
@@ -26,6 +31,8 @@ DEV_PARTICIPANT_PASSWORD = "ParticipantPassword123!"
 
 MIN_DURATION_SECONDS = 15 * 60
 MAX_DURATION_SECONDS = 8 * 60 * 60
+BOOKING_TIME_CONFLICT_DETAIL = "Já existe uma reserva ativa para esta sala nesse intervalo. Ajuste o horário ou escolha outra sala."
+POSTGRES_EXCLUSION_VIOLATION = "23P01"
 
 
 def normalize_datetime_to_utc(value: datetime) -> datetime:
@@ -33,7 +40,6 @@ def normalize_datetime_to_utc(value: datetime) -> datetime:
         return value.replace(tzinfo=UTC)
 
     return value.astimezone(UTC)
-
 
 
 def validate_and_normalize_booking_title(title: str) -> str:
@@ -48,6 +54,33 @@ def validate_and_normalize_booking_title(title: str) -> str:
     return cleaned_title
 
 
+def raise_booking_time_conflict() -> None:
+    raise HTTPException(
+        status_code=status.HTTP_409_CONFLICT,
+        detail=BOOKING_TIME_CONFLICT_DETAIL,
+    )
+
+
+def is_booking_time_conflict_integrity_error(error: IntegrityError) -> bool:
+    original_error = getattr(error, "orig", None)
+    diagnostics = getattr(original_error, "diag", None)
+    constraint_name = getattr(diagnostics, "constraint_name", None)
+    postgres_error_code = getattr(original_error, "pgcode", None)
+
+    return (
+        constraint_name == BOOKING_ACTIVE_ROOM_TIME_EXCLUSION_CONSTRAINT
+        or postgres_error_code == POSTGRES_EXCLUSION_VIOLATION
+    )
+
+
+def handle_booking_integrity_error(db: Session, error: IntegrityError) -> None:
+    db.rollback()
+
+    if is_booking_time_conflict_integrity_error(error):
+        raise_booking_time_conflict()
+
+    raise error
+
 
 def extract_unique_participant_emails(payload: BookingRequest) -> list[str]:
     seen_emails: set[str] = set()
@@ -60,7 +93,6 @@ def extract_unique_participant_emails(payload: BookingRequest) -> list[str]:
             seen_emails.add(normalized_email)
 
     return normalized_emails
-
 
 
 def validate_booking_time_window_and_conflicts(
@@ -109,11 +141,7 @@ def validate_booking_time_window_and_conflicts(
         )
 
     if overlapping_booking_query.first():
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Já existe uma reserva ativa para esta sala nesse intervalo. Ajuste o horário ou escolha outra sala.",
-        )
-
+        raise_booking_time_conflict()
 
 
 def get_room_or_404(db: Session, room_id: uuid.UUID) -> Room:
@@ -126,7 +154,6 @@ def get_room_or_404(db: Session, room_id: uuid.UUID) -> Room:
         )
 
     return room
-
 
 
 def get_booking_with_relations_or_404(db: Session, booking_id: uuid.UUID) -> Booking:
@@ -149,14 +176,12 @@ def get_booking_with_relations_or_404(db: Session, booking_id: uuid.UUID) -> Boo
     return booking
 
 
-
 def ensure_user_can_manage_booking(booking: Booking, current_user: User) -> None:
     if booking.created_by_user_id != current_user.id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Apenas o criador pode alterar esta reserva.",
         )
-
 
 
 def get_or_create_participant_user_by_email(db: Session, email: str) -> User:
@@ -177,7 +202,6 @@ def get_or_create_participant_user_by_email(db: Session, email: str) -> User:
     return user
 
 
-
 def replace_booking_participants_by_email(
     db: Session,
     booking: Booking,
@@ -190,7 +214,6 @@ def replace_booking_participants_by_email(
     for email in participant_emails:
         user = get_or_create_participant_user_by_email(db, email)
         db.add(BookingParticipant(booking_id=booking.id, user_id=user.id))
-
 
 
 def build_booking_outbox_payload(
@@ -207,7 +230,6 @@ def build_booking_outbox_payload(
         "status": booking.status.value,
         "participants": participant_emails,
     }
-
 
 
 def build_booking_response(booking: Booking) -> BookingResponse:
@@ -232,7 +254,6 @@ def build_booking_response(booking: Booking) -> BookingResponse:
     )
 
 
-
 def list_bookings(db: Session) -> list[BookingResponse]:
     bookings = (
         db.query(Booking)
@@ -245,7 +266,6 @@ def list_bookings(db: Session) -> list[BookingResponse]:
     )
 
     return [build_booking_response(booking) for booking in bookings]
-
 
 
 def create_booking(
@@ -266,32 +286,34 @@ def create_booking(
         end_at,
     )
 
-    booking = Booking(
-        title=title,
-        room_id=payload.room_id,
-        created_by_user_id=current_user.id,
-        start_at=start_at,
-        end_at=end_at,
-        status=BookingStatus.ACTIVE,
-    )
-    db.add(booking)
-    db.flush()
+    try:
+        booking = Booking(
+            title=title,
+            room_id=payload.room_id,
+            created_by_user_id=current_user.id,
+            start_at=start_at,
+            end_at=end_at,
+            status=BookingStatus.ACTIVE,
+        )
+        db.add(booking)
+        db.flush()
 
-    replace_booking_participants_by_email(db, booking, participant_emails)
-    db.flush()
+        replace_booking_participants_by_email(db, booking, participant_emails)
+        db.flush()
 
-    create_outbox_event(
-        db,
-        aggregate_type=AGGREGATE_TYPE_BOOKING,
-        aggregate_id=booking.id,
-        event_type=BOOKING_CREATED,
-        payload=build_booking_outbox_payload(booking, participant_emails),
-    )
+        create_outbox_event(
+            db,
+            aggregate_type=AGGREGATE_TYPE_BOOKING,
+            aggregate_id=booking.id,
+            event_type=BOOKING_CREATED,
+            payload=build_booking_outbox_payload(booking, participant_emails),
+        )
 
-    db.commit()
+        db.commit()
+    except IntegrityError as error:
+        handle_booking_integrity_error(db, error)
 
     return build_booking_response(get_booking_with_relations_or_404(db, booking.id))
-
 
 
 def update_booking(
@@ -323,26 +345,28 @@ def update_booking(
         ignored_booking_id=booking.id,
     )
 
-    booking.title = title
-    booking.room_id = payload.room_id
-    booking.start_at = start_at
-    booking.end_at = end_at
+    try:
+        booking.title = title
+        booking.room_id = payload.room_id
+        booking.start_at = start_at
+        booking.end_at = end_at
 
-    replace_booking_participants_by_email(db, booking, participant_emails)
-    db.flush()
+        replace_booking_participants_by_email(db, booking, participant_emails)
+        db.flush()
 
-    create_outbox_event(
-        db,
-        aggregate_type=AGGREGATE_TYPE_BOOKING,
-        aggregate_id=booking.id,
-        event_type=BOOKING_UPDATED,
-        payload=build_booking_outbox_payload(booking, participant_emails),
-    )
+        create_outbox_event(
+            db,
+            aggregate_type=AGGREGATE_TYPE_BOOKING,
+            aggregate_id=booking.id,
+            event_type=BOOKING_UPDATED,
+            payload=build_booking_outbox_payload(booking, participant_emails),
+        )
 
-    db.commit()
+        db.commit()
+    except IntegrityError as error:
+        handle_booking_integrity_error(db, error)
 
     return build_booking_response(get_booking_with_relations_or_404(db, booking.id))
-
 
 
 def cancel_booking(

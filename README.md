@@ -1,311 +1,274 @@
-# 🧪 Coding Test — Fullstack
-## Meeting Room Booking + Async Notification System
+# Meeting Room Booking API
 
-Sistema fullstack para gerenciamento de reservas de salas físicas com envio assíncrono de notificações por e-mail utilizando o padrão **Outbox + Worker**.
+Sistema fullstack para reserva de salas com autenticação, PostgreSQL, FastAPI, React e processamento assíncrono de notificações usando o padrão Outbox.
 
----
+O projeto está organizado como monorepo:
 
-# 🏗️ Arquitetura
-
-O projeto segue uma abordagem **monorepo**, contendo:
-
+```text
 backend/
 frontend/
 docker-compose.yml
+```
 
-Principais conceitos aplicados:
+## Stack
 
-- Arquitetura vertical por feature no backend
-- Separação entre fluxo síncrono (API) e assíncrono (worker)
-- Persistência de eventos com padrão Outbox
-- Garantia de consistência via transação de banco
-- Live reload em ambiente Docker para produtividade
+- Backend: Python 3.12, FastAPI, SQLAlchemy, Alembic, PostgreSQL, Poetry, Pytest
+- Frontend: React, TypeScript, Vite
+- Infra local: Docker e Docker Compose
 
----
-
-# 🧱 Stack utilizada
-
-## Backend
-- Python 3.12
-- FastAPI
-- SQLAlchemy
-- PostgreSQL
-- Poetry
-- Pytest
-
-## Frontend
-- React
-- TypeScript
-- Vite
-
-## Infra
-- Docker
-- Docker Compose
-
----
-
-# 🐳 Como executar o projeto (recomendado)
+## Execução com Docker
 
 Requisitos:
 
 - Docker
 - Docker Compose
 
-**Executar**:
-```
+Suba tudo com:
+
+```bash
 docker compose up --build
 ```
 
-**Serviços disponíveis**:
+Serviços:
 
-Frontend:
-```
-http://localhost:5173
-```
+- Frontend: `http://localhost:5173`
+- Backend API: `http://localhost:8000`
+- Swagger: `http://localhost:8000/docs`
+- PostgreSQL: `localhost:5432`
 
-**Backend API**:
-```
-http://localhost:8000
-```
+O Compose sobe `db`, `backend`, `worker` e `frontend`. O worker usa o mesmo código do backend, aponta para o mesmo PostgreSQL e não expõe porta HTTP.
 
-**Swagger**:
-```
-http://localhost:8000/docs
-```
+Para subir só o worker, quando os demais serviços já estiverem disponíveis:
 
-**PostgreSQL**:
-```
-localhost:5432
-```
-
-**Worker de outbox**:
-```
+```bash
 docker compose up worker
 ```
 
-Ao executar `docker compose up --build`, o Compose sobe `backend`, `worker`, `db` e `frontend`.
-O worker usa o mesmo código do backend, aponta para o mesmo PostgreSQL e não expõe porta HTTP.
----
-
-
-# 💻 Execução manual (sem Docker)
-
-## Backend
+## Execução Manual
 
 Requisitos:
+
 - Python 3.12
 - Poetry
 - PostgreSQL
+- Node 20+ para o frontend
 
-**Instalar dependências**:
+Crie o banco:
+
+```bash
+createdb meeting_rooms
 ```
+
+Configure o backend:
+
+```bash
 cd backend
 poetry install
+cp .env.example .env
 ```
 
-**Configurar variável de ambiente**:
+Variáveis de ambiente usadas pelo backend:
+
+```env
+DATABASE_URL=postgresql+psycopg2://postgres:postgres@localhost:5432/meeting_rooms
+JWT_SECRET_KEY=dummy-value
+ENVIRONMENT=development
 ```
-export DATABASE_URL=postgresql://postgres:postgres@localhost:5432/meeting_rooms
+
+`JWT_SECRET_KEY` é obrigatório no startup da API. `ENVIRONMENT` controla endpoints de desenvolvimento, como o seed.
+
+Aplicar migrations manualmente:
+
+```bash
+cd backend
+poetry run alembic upgrade head
 ```
-**Executar API**:
-```
+
+A API e o worker também aplicam migrations no startup por meio de `source.core.migrations.run_migrations()`.
+
+Rodar a API:
+
+```bash
+cd backend
 poetry run uvicorn source.main:app --reload
 ```
 
-**Executar worker em outro terminal**:
-```
+Rodar o worker em outro terminal:
+
+```bash
 cd backend
 poetry run python -m source.features.outbox.run_worker
 ```
 
-**API**:
-```
-http://localhost:8000
-```
-**Docs**:
-```
-http://localhost:8000/docs
-```
----
+Rodar o frontend:
 
-## Frontend
-
-**Requisitos**:
-- Node 20+
-
-**Instalar dependências**:
-```
+```bash
 cd frontend
 npm install
-```
-
-**Executar**:
-```
 npm run dev
 ```
 
-**Frontend**:
+## Autenticação
+
+Endpoints principais:
+
+- `POST /auth/register`
+- `POST /auth/login`
+- `GET /auth/me`
+
+Criar conta:
+
+```json
+{
+  "email": "user@example.com",
+  "password": "UserPass123!",
+  "confirm_password": "UserPass123!"
+}
 ```
-http://localhost:5173
+
+Login:
+
+```json
+{
+  "email": "user@example.com",
+  "password": "UserPass123!"
+}
 ```
 
----
+As respostas de criar conta e login retornam `access_token` com `token_type = bearer`. Para acessar endpoints protegidos, envie no header:
 
-## Banco de dados
-
-**Criar database**:
-```
-createdb meeting_rooms
-```
-ou:
-```
-CREATE DATABASE meeting_rooms;
+```http
+Authorization: Bearer <access_token>
 ```
 
-# 🔁 Live Reload
+Reservas só podem ser alteradas ou canceladas pelo usuário que criou a reserva.
 
-O ambiente de desenvolvimento suporta live reload automático:
+## Seed de Desenvolvimento
 
-- alterações no backend reiniciam a API automaticamente
-- alterações no frontend atualizam o navegador automaticamente
+O endpoint de seed existe para popular dados de demonstração, para facilitar o uso do sistema:
 
-Não é necessário rebuild de container.
+```http
+POST /dev/populate-mock-data
+```
 
----
+Ele só fica disponível quando `ENVIRONMENT` está como `development`, `dev`, `local`, `test` ou `testing`. Qualquer outra configuração fora essas vai retornar `403`.
 
-# 📬 Outbox Pattern
+O seed cria (ou atualiza) dados mockados para salas, usuários, reservas, participantes e entregas de e-mail usadas pelo frontend. Ele também remove dados mockados anteriores ligados ao dataset de desenvolvimento antes de recriar o cenário (ou seja, idempotência)
 
-Enviar e-mail diretamente dentro da transação da reserva pode gerar inconsistências.
+## Reservas e Concorrência
 
-Exemplo de problema:
+O service de bookings valida regras de negócio antes de gravar no banco:
 
-1. a reserva é salva no banco
-2. tentativa de enviar e-mail
-3. ocorre falha no envio (timeout, SMTP fora, erro de rede)
-4. a reserva foi criada, mas ninguém foi notificado
+- título obrigatório
+- horário de início anterior ao horário de fim
+- início e fim no mesmo dia
+- duração mínima de 15 minutos
+- duração máxima de 8 horas
+- reserva ativa não pode sobrepor outra reserva ativa da mesma sala
+- reservas canceladas não podem ser editadas
 
-ou o contrário:
+Além da validação de aplicação, a proteção real contra concorrência está no PostgreSQL.
 
-1. e-mail enviado
-2. falha antes do commit da transação
-3. usuário recebe notificação de uma reserva que não existe
+A migration `7b9c1d2e3f40_add_booking_overlap_exclusion_constraint.py` cria a extensão `btree_gist` e adiciona uma exclusion constraint parcial:
 
-Para evitar esse tipo de inconsistência, o sistema utiliza o padrão **Outbox**.
+```sql
+EXCLUDE USING gist (
+    room_id WITH =,
+    tstzrange(start_at, end_at, '[)') WITH &&
+)
+WHERE (status = 'active')
+```
 
-A ideia é salvar o evento de notificação na mesma transação da reserva.
+Isso impede, na camada do banco, que duas reservas ativas da mesma sala tenham intervalos sobrepostos, mesmo quando requisições simultâneas passam pela validação de overlap ao mesmo tempo. O range usa limite inferior fechado e superior aberto ([)), então reservas adjacentes são permitidas.
+
+Quando o PostgreSQL retorna a `constraint violation`, o service converte o erro em `409 Conflict` com a mesma mensagem usada na validação antecipada. Cancelar uma reserva muda o status para `canceled`, registra `canceled_at` e libera aquele intervalo para nova reserva.
+
+## Outbox
+
+Criar, atualizar ou cancelar uma reserva grava o evento correspondente na tabela `outbox_events` na mesma transação da alteração da reserva.
+
+Eventos usados:
+
+- `BOOKING_CREATED`
+- `BOOKING_UPDATED`
+- `BOOKING_CANCELED`
 
 Fluxo:
 
-1. a reserva é salva
-2. um evento é salvo na tabela `outbox_events`
-3. a transação é confirmada (commit)
-4. um worker consulta periodicamente a tabela `outbox_events`
-5. eventos pendentes são processados
-6. entregas são registradas em `email_deliveries` para os participantes da reserva
-7. o evento é marcado como processado
+1. A API grava a reserva.
+2. A API grava o evento de outbox na mesma transação que gerou a reserva.
+3. A transação é confirmada.
+4. O worker consulta quais eventos estão marcados como `pending`.
+5. O worker processa notificações de booking.
+6. As entregas são registradas em `email_deliveries`.
+7. O evento é marcado como `processed`.
 
-## Worker
-
-O worker é propositalmente simples e roda como processo separado da API.
-A API continua responsável por subir o FastAPI, aplicar migrations no startup e expor endpoints.
-O worker possui um entrypoint próprio em `source/features/outbox/run_worker.py`, aplica migrations no startup e executa o `worker_loop`.
-O runtime do worker fica responsável por buscar eventos pendentes, controlar retry/falha e despachar o processamento.
-A montagem de notificações de reserva fica separada em `source/features/bookings/notifications.py`.
-
-Para eventos `BOOKING_CREATED`, `BOOKING_UPDATED` e `BOOKING_CANCELED`, o handler de booking:
-
-- resolve os destinatários a partir dos participantes da reserva
-- normaliza os e-mails para minúsculas
-- remove destinatários duplicados
-- monta assunto e corpo da notificação
-- registra um `email_delivery` por participante
-
-O criador da reserva só recebe notificação se também estiver na lista de participantes.
-Essa escolha segue o foco do desafio: notificar os participantes da reserva.
-
-Em desenvolvimento, isso significa que basta subir o ambiente normalmente:
-
-```
-docker compose up --build
-```
-
-ou, manualmente, em dois terminais:
-
-```
-cd backend
-poetry run uvicorn source.main:app --reload
-```
-
-```
-cd backend
-poetry run python -m source.features.outbox.run_worker
-```
-
-Não existe Celery, Redis, RabbitMQ ou Kafka nesta versão. A separação é apenas de processo:
-API e worker compartilham o mesmo banco e o mesmo código de domínio, mas executam de forma independente.
+O worker é propositalmente simples: não usa Celery, Redis, RabbitMQ ou Kafka. Ele roda em processo separado, faz polling periódico e compartilha o mesmo banco com a API.
 
 ## Retry
 
-Falhas no processamento de um evento são tratadas de forma explícita:
+Se o processamento de um evento falhar:
 
-- o worker incrementa `retry_count`
-- enquanto `retry_count < 3`, o evento continua com status `pending`
-- ao atingir `retry_count == 3`, o evento é marcado como `failed`
-- eventos `processed` ou `failed` não são selecionados novamente pelo loop normal
+- o worker faz rollback da tentativa
+- recarrega o evento
+- incrementa `retry_count`
+- mantém `pending` enquanto `retry_count < 3`
+- marca como `failed` quando `retry_count >= 3`
 
-Essa estratégia mantém o comportamento previsível sem introduzir scheduler complexo ou infraestrutura adicional.
+Eventos marcados como `processed` ou `failed` não são selecionados novamente pelo loop normal.
 
 ## Idempotência
 
-Cada entrega criada a partir do outbox guarda o `source_event_id`.
-Como um evento de reserva pode notificar vários participantes, um mesmo `source_event_id` pode aparecer em múltiplas linhas de `email_deliveries`.
-Para evitar duplicidade:
+Cada entrega de e-mail criada a partir de um evento guarda `source_event_id`.
 
-- o serviço de email delivery verifica se já existe uma entrega para o mesmo par `source_event_id` + `recipient_email` antes de criar outra
-- o banco possui um índice único parcial em `email_deliveries(source_event_id, recipient_email)` quando `source_event_id` não é nulo
+Como um evento pode notificar vários participantes, a idempotência é garantida por um par X-Y:
 
-Assim, se o worker tentar processar o mesmo evento novamente, o mesmo participante não recebe entregas duplicadas para aquele evento, mas outros participantes do mesmo evento continuam podendo ter suas próprias entregas.
+```text
+source_event_id + recipient_email
+```
 
-## Por que não usar Celery ou serviços terceirizados?
+O código verifica se essa entrega já existe antes de criar outra, e o banco possui índice único parcial para impedir duplicidade quando `source_event_id` não é nulo. 
 
-Celery, Redis ou RabbitMQ seriam opções naturais em um sistema com maior volume, múltiplos workers distribuídos, filas com prioridade, backoff avançado, agendamento, observabilidade mais profunda e isolamento operacional entre API e processamento assíncrono.
+Dessa forma, conseguimos garantir que reprocessamentos não vão duplicar a entrega para o mesmo participante.
 
-Neste desafio, a escolha foi manter uma solução proporcional ao escopo:
+## Testes
 
-- menos serviços para configurar
-- menos moving parts para avaliar
-- consistência garantida pelo PostgreSQL
-- comportamento assíncrono suficiente para demonstrar o padrão Outbox
-- separação real entre processo web e processo de worker
-- caminho claro para evolução futura
+Rodar a suíte de testes:
 
-Uma evolução futura poderia substituir o polling simples por Celery ou outra fila, mantendo a tabela de outbox como fonte transacional dos eventos. A API continuaria criando reservas e eventos na mesma transação; o mecanismo de consumo é que passaria a ter uma infraestrutura dedicada.
+```bash
+cd backend
+poetry run pytest
+```
 
-Benefícios:
+Coberturas relevantes:
 
-- garante consistência entre banco e notificação
-- permite retry em caso de falha no envio
-- evita envio duplicado (idempotência)
-- desacopla processamento assíncrono da API
+- autenticação
+- CRUD básico de salas
+- criação, edição e cancelamento de reservas
+- conflitos normais de horário
+- update gerando conflito
+- cancelamento liberando novo agendamento
+- constraint real de concorrência com duas sessões simultâneas no PostgreSQL
+- outbox, retry e idempotência de entregas
+- seed de desenvolvimento
 
----
+O teste de concorrência 
+- usa duas sessões reais contra PostgreSQL
+- valida que uma inserção conflitante é aceita
+- valida que outra é rejeitada pela exclusion constraint. 
 
+Ele é um teste específico de PostgreSQL. Por exemplo, se a suíte for executada em outro dialeto, esse teste é ignorado.
 
-# 📌 Decisões técnicas
+## Decisões e Limitações
 
-**FastAPI:**
-simples, performático e adequado para APIs REST
+- A solução de concorrência é feita deliberadamente na camada do banco, porque validação de overlap em aplicação nem sempre é capaz de bloquear corrida entre transações simultâneas.
+- A API ainda mantém a validação antecipada para retornar conflito rapidamente em casos normais. A constraint do banco é a garantia definitiva.
+- O worker usa polling simples e retry fixo. Para produção com maior volume, seria natural evoluir para backoff, observabilidade melhor, múltiplos workers coordenados ou uma fila dedicada. Como o escopo do teste é mais simples, preferi manter o worker com código python mesmo.
+- As notificações são registradas como entregas no banco; não há integração SMTP real nesta versão.
+- O criador da reserva só recebe notificação se também estiver na lista de participantes.
+- A extensão `btree_gist` precisa estar disponível no PostgreSQL para a constraint de concorrência.
 
-**PostgreSQL:**
-suporte robusto a transações e concorrência
-
-**Outbox Pattern:**
-garante consistência entre operações síncronas e assíncronas
-
-**Arquitetura vertical:**
-organiza o código por domínio, facilitando manutenção
-
-**Docker:**
-ambiente reproduzível com setup simplificado
-
----
+Essa escolha mantém o escopo pequeno e minimamente viável para o desafio técnico: 
+- PostgreSQL garante consistência
+- a API fica simples e fácil de entender
+- o worker demonstra processamento assíncrono sem adicionar infraestrutura desnecessária.
