@@ -31,7 +31,7 @@ DEV_PARTICIPANT_PASSWORD = "ParticipantPassword123!"
 
 MIN_DURATION_SECONDS = 15 * 60
 MAX_DURATION_SECONDS = 8 * 60 * 60
-BOOKING_TIME_CONFLICT_DETAIL = "Já existe uma reserva ativa para esta sala nesse intervalo. Ajuste o horário ou escolha outra sala."
+BOOKING_TIME_CONFLICT_DETAIL = "Conflito de horário: Já existe uma reserva ativa para esta sala nesse intervalo. Ajuste o horário ou escolha outra sala."
 POSTGRES_EXCLUSION_VIOLATION = "23P01"
 
 
