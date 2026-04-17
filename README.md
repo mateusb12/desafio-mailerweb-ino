@@ -182,14 +182,68 @@ A ideia é salvar o evento de notificação na mesma transação da reserva.
 Fluxo:
 
 1. a reserva é salva
-2. um evento é salvo na tabela `outbox`
+2. um evento é salvo na tabela `outbox_events`
 3. a transação é confirmada (commit)
-4. um worker consulta periodicamente a tabela `outbox`
+4. um worker consulta periodicamente a tabela `outbox_events`
 5. eventos pendentes são processados
-6. e-mails são enviados
+6. uma entrega é registrada em `email_deliveries`
 7. o evento é marcado como processado
 
-O worker roda continuamente buscando novos eventos.
+## Worker atual
+
+O worker atual é propositalmente simples e roda dentro do lifecycle da aplicação FastAPI.
+Quando a API sobe, o `lifespan` executa as migrations e cria uma task assíncrona para o `worker_loop`.
+Esse loop consulta periodicamente eventos `pending` em `outbox_events`, processa em pequenos lotes e registra a entrega correspondente em `email_deliveries`.
+
+Em desenvolvimento, isso significa que basta subir o backend normalmente:
+
+```
+docker compose up --build
+```
+
+ou, manualmente:
+
+```
+cd backend
+poetry run uvicorn source.main:app --reload
+```
+
+Não existe processo separado de Celery nesta versão.
+
+## Retry
+
+Falhas no processamento de um evento são tratadas de forma explícita:
+
+- o worker incrementa `retry_count`
+- enquanto `retry_count < 3`, o evento continua com status `pending`
+- ao atingir `retry_count == 3`, o evento é marcado como `failed`
+- eventos `processed` ou `failed` não são selecionados novamente pelo loop normal
+
+Essa estratégia mantém o comportamento previsível sem introduzir scheduler complexo ou infraestrutura adicional.
+
+## Idempotência
+
+Cada entrega criada a partir do outbox guarda o `source_event_id`.
+Para evitar duplicidade:
+
+- o serviço de email delivery verifica se já existe uma entrega para o mesmo `source_event_id` antes de criar outra
+- o banco possui um índice único parcial em `email_deliveries.source_event_id` quando o valor não é nulo
+
+Assim, se o worker tentar processar o mesmo evento novamente, o mesmo evento de outbox não deve gerar entregas duplicadas.
+
+## Por que não usar Celery ou serviços terceirizados?
+
+Celery, Redis ou RabbitMQ seriam opções naturais em um sistema com maior volume, múltiplos workers distribuídos, filas com prioridade, backoff avançado, agendamento, observabilidade mais profunda e isolamento operacional entre API e processamento assíncrono.
+
+Neste desafio, a escolha foi manter uma solução proporcional ao escopo:
+
+- menos serviços para configurar
+- menos moving parts para avaliar
+- consistência garantida pelo PostgreSQL
+- comportamento assíncrono suficiente para demonstrar o padrão Outbox
+- caminho claro para evolução futura
+
+Uma evolução futura poderia extrair o processamento de `outbox_events` para um worker separado, usando Celery ou outra fila, mantendo a tabela de outbox como fonte transacional dos eventos. A API continuaria criando reservas e eventos na mesma transação; o mecanismo de consumo é que passaria a ser externo.
 
 Benefícios:
 

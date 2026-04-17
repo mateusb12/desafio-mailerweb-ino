@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 from enum import Enum
 
-from sqlalchemy import JSON, DateTime, Enum as SQLEnum, ForeignKey, String, Text
+from sqlalchemy import JSON, DateTime, Enum as SQLEnum, ForeignKey, Index, String, Text, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from source.core.database import Base
@@ -15,6 +15,14 @@ class EmailDeliveryStatus(str, Enum):
 
 class EmailDelivery(Base):
     __tablename__ = "email_deliveries"
+    __table_args__ = (
+        Index(
+            "uq_email_deliveries_source_event_id",
+            "source_event_id",
+            unique=True,
+            postgresql_where=text("source_event_id IS NOT NULL"),
+        ),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
 

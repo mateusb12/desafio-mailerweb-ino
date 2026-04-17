@@ -15,6 +15,7 @@ from source.models.user import User
 logger = logging.getLogger(__name__)
 
 POLL_INTERVAL = 2
+MAX_RETRIES = 3
 
 
 async def process_event(event_id: uuid.UUID):
@@ -68,8 +69,9 @@ Participantes: {participants}
         failed_event = db.get(OutboxEvent, event_id)
 
         if failed_event is not None:
-            failed_event.retry_count = (failed_event.retry_count or 0) + 1
-            failed_event.status = OutboxStatus.FAILED
+            next_retry_count = (failed_event.retry_count or 0) + 1
+            failed_event.retry_count = next_retry_count
+            failed_event.status = OutboxStatus.FAILED if next_retry_count >= MAX_RETRIES else OutboxStatus.PENDING
 
             db.commit()
 

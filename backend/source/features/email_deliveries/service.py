@@ -22,6 +22,11 @@ def register_email_delivery(
     delivered_at: datetime | None = None,
     delivery_id: UUID | None = None,
 ) -> EmailDelivery:
+    if source_event_id is not None:
+        existing_delivery = db.query(EmailDelivery).filter(EmailDelivery.source_event_id == source_event_id).one_or_none()
+        if existing_delivery is not None:
+            return existing_delivery
+
     delivery = EmailDelivery(
         id=delivery_id,
         recipient_user_id=recipient_user_id,
